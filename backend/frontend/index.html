@@ -1,0 +1,2316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GECG - Gestión de Control Guaicaipuro</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f5f5;
+            min-height: 100vh;
+        }
+        .login-wrapper { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); }
+        .login-card { background: rgba(255,255,255,0.98); border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.3); width: 100%; max-width: 450px; overflow: hidden; }
+        .login-header { background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); color: white; padding: 35px 25px; text-align: center; }
+        .logo-container { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; border: 2px solid rgba(255,255,255,0.5); }
+        .logo-container i { font-size: 40px; color: white; }
+        .login-header h2 { font-size: 28px; font-weight: bold; margin: 0; }
+        .login-body { padding: 35px 30px; background: white; }
+        .input-group { margin-bottom: 20px; position: relative; }
+        .input-group i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #1a472a; }
+        .input-group input { width: 100%; padding: 12px 12px 12px 40px; border: 2px solid #e0e0e0; border-radius: 12px; background: #f8f9fa; }
+        .btn-login { width: 100%; padding: 12px; background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
+        .btn-login:hover { background: linear-gradient(135deg, #2d6a4f 0%, #1a472a 100%); }
+        .error-msg { color: red; font-size: 14px; margin-top: 10px; display: none; text-align: center; }
+        .small-text { text-align: center; margin-top: 15px; font-size: 12px; color: #6c757d; }
+        
+        .dashboard-container { display: none; }
+        .wrapper { display: flex; width: 100%; min-height: 100vh; }
+        
+        .sidebar {
+            width: 280px;
+            background: linear-gradient(180deg, #1a472a 0%, #0d2818 100%);
+            color: white;
+            position: fixed;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 100;
+            flex-shrink: 0;
+        }
+        .sidebar-header { padding: 25px 20px; text-align: center; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .sidebar-header h3 { margin: 0; }
+        .sidebar-header h3 i { margin-right: 10px; }
+        .sidebar-header p { margin: 5px 0 0; font-size: 0.8em; opacity: 0.8; }
+        
+        .menu-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-left: 3px solid transparent;
+            transition: all 0.3s;
+            color: white;
+            text-decoration: none;
+        }
+        .menu-item:hover { background: rgba(255,255,255,0.1); }
+        .menu-item.active { background: rgba(255,255,255,0.15); border-left-color: #ffba08; }
+        .menu-item i { width: 24px; }
+        
+        .user-info-sidebar {
+            padding: 20px;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+        }
+        .user-info-sidebar .btn-logout {
+            background: transparent;
+            border: 1px solid white;
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            width: 100%;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .user-info-sidebar .btn-logout:hover { background: white; color: #1a472a; }
+        
+        .content {
+            margin-left: 280px;
+            padding: 20px;
+            width: 100%;
+        }
+        .navbar-top {
+            background: white;
+            border-radius: 12px;
+            padding: 15px 20px;
+            margin-bottom: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .page-title { font-size: 1.5em; font-weight: bold; color: #1a472a; }
+        .user-badge { font-weight: 600; color: #1a472a; }
+        
+        .stats-card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .stats-card h4 { color: #1a472a; margin-bottom: 15px; }
+        .stats-card h4 i { margin-right: 10px; }
+        
+        .content-panel { display: none; }
+        .content-panel.active { display: block; }
+        
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-bottom: 15px; }
+        .form-grid label { font-weight: 600; font-size: 12px; color: #1a472a; display: block; margin-bottom: 3px; }
+        .form-grid input, .form-grid select { width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 8px; }
+        
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; border: none; transition: all 0.2s; }
+        .btn-primary { background: #1a472a; color: white; }
+        .btn-primary:hover { background: #2d6a4f; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-success:hover { background: #218838; }
+        .btn-warning { background: #ffc107; color: #000; }
+        .btn-warning:hover { background: #e0a800; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-danger:hover { background: #c82333; }
+        .btn-info { background: #17a2b8; color: white; }
+        .btn-info:hover { background: #138496; }
+        .btn-secondary { background: #6c757d; color: white; }
+        .btn-secondary:hover { background: #5a6268; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        
+        .acciones { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-end; margin-top: 15px; }
+        .acciones-left { display: flex; gap: 10px; flex-wrap: wrap; justify-content: flex-start; margin-top: 15px; }
+        
+        .historial-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .historial-table th { background: #e8f5e9; color: #1a472a; padding: 8px; text-align: left; border: 1px solid #ddd; }
+        .historial-table td { padding: 8px; border: 1px solid #ddd; }
+        
+        .btn-small { background: #dc3545; color: white; border: none; padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 11px; }
+        .btn-small:hover { background: #c82333; }
+        
+        .estado-box { padding: 10px; border-radius: 8px; text-align: center; font-weight: 600; }
+        .estado-operativo { background: #d4edda; color: #155724; }
+        .estado-parada { background: #f8d7da; color: #721c24; }
+        .estado-transicion { background: #fff3cd; color: #856404; }
+        .estado-info { background: #d1ecf1; color: #0c5460; }
+        
+        .badge-admin { background: #ffc107; color: #000; font-size: 10px; padding: 2px 6px; border-radius: 10px; margin-left: 5px; }
+        
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 30px; border-radius: 15px; max-width: 700px; width: 90%; max-height: 80vh; overflow-y: auto; }
+        .modal-content input, .modal-content select, .modal-content textarea { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ddd; border-radius: 5px; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
+        
+        .table-responsive { overflow-x: auto; max-height: 300px; overflow-y: auto; }
+        .mt-2 { margin-top: 10px; }
+        .mb-2 { margin-bottom: 10px; }
+        .text-center { text-align: center; }
+        .text-muted { color: #6c757d; }
+        .fw-bold { font-weight: bold; }
+        
+        .tabla-quimicos { width: 100%; border-collapse: collapse; margin: 10px 0; }
+        .tabla-quimicos th, .tabla-quimicos td { padding: 8px; text-align: center; border: 1px solid #ddd; font-size: 12px; }
+        .tabla-quimicos th { background: #1a472a; color: white; }
+        .tabla-quimicos input { width: 80px; padding: 5px; border: 1px solid #ccc; border-radius: 5px; text-align: center; }
+        .btn-recargar { background: #17a2b8; color: white; border: none; padding: 3px 8px; border-radius: 5px; cursor: pointer; font-size: 11px; }
+        .btn-recargar:hover { background: #138496; }
+        
+        .grupo-card { background: #f8f9fa; border-radius: 8px; padding: 15px; margin-bottom: 15px; border: 1px solid #e0e0e0; }
+        .grupo-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 2px solid #1a472a; }
+        .grupo-header h6 { margin: 0; color: #1a472a; font-weight: bold; }
+        .grupo-check { transform: scale(1.2); margin-right: 10px; cursor: pointer; }
+        .grupo-filas { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .campo-grupo label { font-size: 11px; font-weight: 600; color: #1a472a; display: block; margin-bottom: 3px; }
+        .campo-grupo input, .campo-grupo select { width: 100%; padding: 6px; border: 1px solid #ddd; border-radius: 5px; font-size: 12px; }
+        
+        .presion-fila { display: grid; grid-template-columns: 80px 1fr 1fr; gap: 10px; padding: 5px 0; border-bottom: 1px solid #eee; align-items: center; }
+        .presion-fila label { font-weight: 600; color: #1a472a; margin: 0; }
+        .presion-fila input { width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 5px; }
+        
+        .whatsapp-checkbox { transform: scale(1.2); margin-right: 5px; cursor: pointer; }
+        .hora-presion-checkbox { transform: scale(1.2); margin-right: 5px; cursor: pointer; }
+        
+        .config-item { display: flex; align-items: center; gap: 5px; padding: 3px 0; border-bottom: 1px solid #eee; }
+        .config-item input { flex: 1; }
+        .config-item .btn { padding: 2px 8px; font-size: 12px; }
+        
+        @media (max-width: 768px) {
+            .sidebar { margin-left: -280px; transition: margin 0.3s; }
+            .sidebar.active { margin-left: 0; }
+            .content { margin-left: 0; }
+            .menu-toggle { display: block !important; }
+            .grupo-filas { grid-template-columns: 1fr; }
+        }
+        .menu-toggle { display: none; background: #1a472a; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; }
+        
+        .situacion-opciones { display: flex; gap: 15px; flex-wrap: wrap; margin: 10px 0; }
+        .situacion-opciones label { font-weight: normal; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<!-- ==================== LOGIN ==================== -->
+<div id="loginScreen">
+    <div class="login-wrapper">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="logo-container"><i class="fas fa-tint"></i></div>
+                <h2>GECG</h2>
+                <p>Gestión de Control Guaicaipuro</p>
+                <small>Eje Altos Mirandinos</small>
+            </div>
+            <div class="login-body">
+                <div class="input-group">
+                    <i class="fas fa-user"></i>
+                    <input type="text" id="username" placeholder="Usuario" value="admin">
+                </div>
+                <div class="input-group">
+                    <i class="fas fa-lock"></i>
+                    <input type="password" id="password" placeholder="Contraseña" value="admin123">
+                </div>
+                <button class="btn-login" onclick="login()">Ingresar</button>
+                <div id="errorMsg" class="error-msg"></div>
+                <div class="small-text">admin / admin123 | operador / operador123</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== DASHBOARD ==================== -->
+<div id="dashboardScreen" class="dashboard-container">
+    <div class="wrapper">
+        
+        <!-- SIDEBAR -->
+        <div class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h3><i class="fas fa-tint"></i> GECG</h3>
+                <p>Eje Altos Mirandinos</p>
+            </div>
+            <div class="sidebar-menu">
+                <div class="menu-item active" data-panel="dispositivo"><i class="fas fa-microchip"></i><span>Dispositivo</span></div>
+                <div class="menu-item" data-panel="plantas"><i class="fas fa-factory"></i><span>Plantas</span></div>
+                <div class="menu-item" data-panel="estaciones"><i class="fas fa-industry"></i><span>Estaciones</span></div>
+                <div class="menu-item" data-panel="diques"><i class="fas fa-dam"></i><span>Diques</span></div>
+                <div class="menu-item" data-panel="embalses"><i class="fas fa-water"></i><span>Embalses</span></div>
+                <div class="menu-item" data-panel="maniobras"><i class="fas fa-tasks"></i><span>Maniobras</span></div>
+                <div class="menu-item" data-panel="excel"><i class="fas fa-file-excel"></i><span>Excel</span></div>
+                <div class="menu-item" data-panel="admin"><i class="fas fa-user-shield"></i><span>Administración</span></div>
+            </div>
+            <div class="user-info-sidebar">
+                <div id="sidebarUserName" class="fw-bold"></div>
+                <small id="sidebarUserRol"></small>
+                <button class="btn-logout" onclick="logout()">Cerrar Sesión</button>
+            </div>
+        </div>
+
+        <!-- CONTENT -->
+        <div class="content">
+            
+            <!-- TOP BAR -->
+            <div class="navbar-top">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰ Menú</button>
+                <div class="page-title" id="pageTitle">Dispositivo</div>
+                <div class="user-badge"><i class="fas fa-user-check"></i> <span id="usuarioActual"></span></div>
+            </div>
+
+            <!-- ===== PANEL DISPOSITIVO ===== -->
+            <div id="panel-dispositivo" class="content-panel active">
+                <div class="stats-card">
+                    <h4><i class="fas fa-microchip"></i> Dispositivo - Control de Presiones</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div><label>📅 FECHA</label><input type="date" id="fechaDispositivo"></div>
+                        <div><label>👤 OPERADOR ENTRANTE</label><select id="opEntranteDisp"><option value="">Seleccionar...</option></select></div>
+                        <div><label>👥 OPERADOR SALIENTE</label><select id="opSalienteDisp"><option value="">Seleccionar...</option></select></div>
+                    </div>
+                    <div id="presionesContainer" style="max-height:400px; overflow-y:auto;"></div>
+                    <div class="acciones">
+                        <button class="btn btn-warning" onclick="abrirModalWhatsAppDispositivo()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        <button class="btn btn-success" onclick="guardarDispositivo()"><i class="fas fa-save"></i> Guardar</button>
+                    </div>
+                </div>
+                
+                <!-- HISTORIAL PRESIONES -->
+                <div class="stats-card">
+                    <h4><i class="fas fa-history"></i> Historial de Presiones</h4>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead>
+                                <tr>
+                                    <th>Fecha</th>
+                                    <th>Operador E</th>
+                                    <th>Operador S</th>
+                                    <th>Registros</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuerpoHistorialPresiones">
+                                <tr><td colspan="5" class="text-center">No hay registros</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL PLANTAS ===== -->
+            <div id="panel-plantas" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-factory"></i> Plantas Potabilizadoras</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div><label>📅 FECHA</label><input type="date" id="fechaPlanta"></div>
+                        <div><label>🏭 PLANTA</label><select id="plantaSelect"><option value="">Seleccionar...</option></select></div>
+                        <div><label>👤 OPERADOR ENTRANTE</label><select id="opEntrantePlanta"><option value="">Seleccionar...</option></select></div>
+                        <div><label>👥 OPERADOR SALIENTE</label><select id="opSalientePlanta"><option value="">Seleccionar...</option></select></div>
+                    </div>
+                    
+                    <h6><i class="fas fa-flask"></i> SUSTANCIAS QUÍMICAS</h6>
+                    <table class="tabla-quimicos">
+                        <thead><tr><th>SUSTANCIA</th><th>UNIDAD</th><th>GASTOS</th><th>EXISTENCIA</th><th>ACCIÓN</th></tr></thead>
+                        <tbody id="cuerpoQuimicos"></tbody>
+                    </table>
+                    
+                    <h6><i class="fas fa-chart-line"></i> ANÁLISIS FISICOQUÍMICO</h6>
+                    <div class="form-grid">
+                        <div><label>🌫️ TURBIEDAD (NTU)</label><input type="number" step="0.01" id="turbiedadPlanta"></div>
+                        <div><label>🎨 COLOR (UPC)</label><input type="number" step="0.01" id="colorPlanta"></div>
+                        <div><label>🧪 CLORO RESIDUAL (ppm)</label><input type="number" step="0.01" id="cloroPlanta"></div>
+                        <div><label>⚗️ pH</label><input type="number" step="0.1" id="phPlanta"></div>
+                        <div><label>📊 PRODUCCIÓN (L/s)</label><input type="number" step="0.1" id="produccionPlanta"></div>
+                    </div>
+                    <div class="acciones">
+                        <button class="btn btn-warning" onclick="enviarWhatsAppPlantas()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        <button class="btn btn-success" onclick="guardarPlanta()"><i class="fas fa-save"></i> Guardar</button>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <h4><i class="fas fa-history"></i> Historial de Plantas</h4>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead><tr><th>Fecha</th><th>Planta</th><th>Producción</th><th>Op.E</th><th>Op.S</th><th>Acciones</th></tr></thead>
+                            <tbody id="cuerpoHistorialPlantas"><tr><td colspan="6" class="text-center">No hay registros</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL ESTACIONES ===== -->
+            <div id="panel-estaciones" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-industry"></i> Estaciones de Bombeo</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div><label>📅 FECHA</label><input type="date" id="fechaEstacion"></div>
+                        <div><label>🏭 ESTACIÓN</label><select id="estacionSelect"><option value="">Seleccionar...</option></select></div>
+                        <div><label>👤 OPERADOR ENTRANTE</label><select id="opEntranteEst"><option value="">Seleccionar...</option></select></div>
+                        <div><label>👥 OPERADOR SALIENTE</label><select id="opSalienteEst"><option value="">Seleccionar...</option></select></div>
+                    </div>
+                    
+                    <h6><i class="fas fa-cogs"></i> EQUIPOS OPERATIVOS (5 Grupos)</h6>
+                    <div id="gruposContainerEst"></div>
+                    
+                    <h6><i class="fas fa-chart-bar"></i> DATOS GENERALES</h6>
+                    <div class="form-grid">
+                        <div><label>⚡ TENSIÓN (KV)</label><input type="number" step="0.1" id="tensionEst"></div>
+                        <div><label>💧 SUCCIÓN (m)</label><input type="number" step="0.1" id="succionEst"></div>
+                        <div><label>⚙️ POTENCIA (KW)</label><input type="number" step="0.1" id="potenciaEst"></div>
+                        <div><label>📈 DESCARGA (mca)</label><input type="number" step="0.1" id="descargaEst"></div>
+                    </div>
+                    <div class="acciones">
+                        <button class="btn btn-warning" onclick="enviarWhatsAppEstaciones()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        <button class="btn btn-success" onclick="guardarEstacion()"><i class="fas fa-save"></i> Guardar</button>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <h4><i class="fas fa-history"></i> Historial de Estaciones</h4>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead><tr><th>Fecha</th><th>Estación</th><th>Grupos</th><th>Op.E</th><th>Op.S</th><th>Acciones</th></tr></thead>
+                            <tbody id="cuerpoHistorialEstaciones"><tr><td colspan="6" class="text-center">No hay registros</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL DIQUES ===== -->
+            <div id="panel-diques" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-dam"></i> Diques - Control de Niveles</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div><label>📅 FECHA</label><input type="date" id="fechaDique"></div>
+                        <div><label>🕐 HORA</label><input type="time" id="horaDique"></div>
+                        <div><label>👤 OPERADOR ENTRANTE</label><select id="opEntranteDique"><option value="">Seleccionar...</option></select></div>
+                        <div><label>👥 OPERADOR SALIENTE</label><select id="opSalienteDique"><option value="">Seleccionar...</option></select></div>
+                        <div><label>🏞️ DIQUE</label><select id="diqueSelect"><option value="">Seleccionar...</option></select></div>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div><label>📏 COTA (m)</label><input type="number" step="0.01" id="cotaDique"></div>
+                        <div><label>💧 CAUDAL (LPS)</label><input type="number" step="0.1" id="caudalDique"></div>
+                        <div><label>🧪 pH</label><input type="number" step="0.1" id="phDique"></div>
+                        <div><label>🌫️ TURBIEDAD (NTU)</label><input type="number" step="0.1" id="turbiedadDique"></div>
+                    </div>
+                    
+                    <div class="situacion-opciones">
+                        <label><input type="radio" name="situacionDique" value="OPERATIVO"> ✅ OPERATIVO</label>
+                        <label><input type="radio" name="situacionDique" value="MANTENIMIENTO"> 🔧 MANTENIMIENTO</label>
+                        <label><input type="radio" name="situacionDique" value="FUERA SERVICIO"> ❌ FUERA SERVICIO</label>
+                    </div>
+                    <div><label>📝 DETALLE</label><textarea id="detalleDique" class="form-control" rows="2"></textarea></div>
+                    
+                    <div class="acciones">
+                        <button class="btn btn-warning" onclick="enviarWhatsAppDiques()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        <button class="btn btn-success" onclick="guardarDique()"><i class="fas fa-save"></i> Guardar</button>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <h4><i class="fas fa-history"></i> Historial de Diques</h4>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead><tr><th>Fecha</th><th>Dique</th><th>Cota</th><th>Op.E</th><th>Op.S</th><th>Acciones</th></tr></thead>
+                            <tbody id="cuerpoHistorialDiques"><tr><td colspan="6" class="text-center">No hay registros</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL EMBALSES ===== -->
+            <div id="panel-embalses" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-water"></i> Embalses - Control de Cotas</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div><label>📅 FECHA</label><input type="date" id="fechaEmbalse"></div>
+                        <div><label>👤 OPERADOR ENTRANTE</label><select id="operadorEntranteEmbalse"><option value="">Seleccionar...</option></select></div>
+                        <div><label>👥 OPERADOR SALIENTE</label><select id="operadorSalienteEmbalse"><option value="">Seleccionar...</option></select></div>
+                        <div><label>🏞️ EMBALSE</label><select id="embalseSelect"><option value="">Seleccionar...</option></select></div>
+                    </div>
+                    <div class="form-grid">
+                        <div><label>📍 COTA EMBALSE (m)</label><input type="number" step="0.01" id="cotaEmbalse" oninput="calcularEstado()"></div>
+                        <div><label>🛑 COTA PARADA (m)</label><input type="number" step="0.01" id="cotaParada" oninput="calcularEstado()"></div>
+                        <div><label>▶️ COTA ARRANQUE (m)</label><input type="number" step="0.01" id="cotaArranque" oninput="calcularEstado()"></div>
+                    </div>
+                    <div class="form-grid">
+                        <div><label>⚡ DIFERENCIA</label><input type="text" id="diferenciaCotas" readonly style="background:#e8f5e9; font-weight:bold; text-align:center;"></div>
+                        <div><label>📊 ESTADO</label><div id="estadoEmbalseInfo" class="estado-box estado-info">Ingrese las cotas</div></div>
+                    </div>
+                    <div><label>📝 OBSERVACIONES</label><textarea id="obsEmbalse" class="form-control" rows="2"></textarea></div>
+                    <div class="acciones">
+                        <button class="btn btn-warning" onclick="enviarWhatsAppEmbalse()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        <button class="btn btn-success" onclick="guardarEmbalse()"><i class="fas fa-save"></i> Guardar</button>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <h4><i class="fas fa-history"></i> Historial de Embalses</h4>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead><tr><th>Fecha</th><th>Embalse</th><th>Cota</th><th>Estado</th><th>Op.E</th><th>Op.S</th><th>Acciones</th></tr></thead>
+                            <tbody id="cuerpoHistorialEmbalses"><tr><td colspan="7" class="text-center">No hay registros</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL MANIOBRAS ===== -->
+            <div id="panel-maniobras" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-tasks"></i> Maniobras</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div><label>📅 FECHA</label><input type="date" id="fechaManiobra"></div>
+                        <div><label>🕐 HORA</label><input type="time" id="horaManiobra"></div>
+                        <div><label>👤 RESPONSABLE</label><select id="responsableManiobra"><option value="">Seleccionar...</option></select></div>
+                        <div><label>📍 UBICACIÓN</label><select id="ubicacionManiobra"><option value="">Seleccionar...</option></select></div>
+                    </div>
+                    <div class="form-grid">
+                        <div><label>🔧 TIPO</label><select id="tipoManiobra"><option value="">Seleccionar...</option><option value="APERTURA">APERTURA</option><option value="CIERRE">CIERRE</option><option value="MANTENIMIENTO">MANTENIMIENTO</option></select></div>
+                        <div><label>🛠️ EQUIPO</label><input type="text" id="equipoManiobra"></div>
+                        <div><label>📊 RESULTADO</label><select id="resultadoManiobra"><option value="EXITOSO">EXITOSO</option><option value="FALLIDO">FALLIDO</option></select></div>
+                    </div>
+                    <div><label>📝 DESCRIPCIÓN</label><textarea id="descManiobra" class="form-control" rows="2"></textarea></div>
+                    <div class="acciones">
+                        <button class="btn btn-warning" onclick="enviarWhatsAppManiobras()"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        <button class="btn btn-success" onclick="guardarManiobra()"><i class="fas fa-save"></i> Guardar</button>
+                    </div>
+                </div>
+                <div class="stats-card">
+                    <h4><i class="fas fa-history"></i> Historial de Maniobras</h4>
+                    <hr>
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead><tr><th>Fecha</th><th>Ubicación</th><th>Tipo</th><th>Resultado</th><th>Responsable</th><th>Acciones</th></tr></thead>
+                            <tbody id="cuerpoHistorialManiobras"><tr><td colspan="6" class="text-center">No hay registros</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL EXCEL ===== -->
+            <div id="panel-excel" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-file-excel"></i> Reporte Excel</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div><label>📅 FECHA INICIO</label><input type="date" id="fechaInicioExcel"></div>
+                        <div><label>📅 FECHA FIN</label><input type="date" id="fechaFinExcel"></div>
+                        <div><label>📋 MÓDULO</label>
+                            <select id="moduloExcel">
+                                <option value="todos">TODOS</option>
+                                <option value="embalses">Embalses</option>
+                                <option value="plantas">Plantas</option>
+                                <option value="estaciones">Estaciones</option>
+                                <option value="diques">Diques</option>
+                                <option value="maniobras">Maniobras</option>
+                                <option value="presiones">Dispositivo</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="acciones">
+                        <button class="btn btn-success" onclick="exportarExcel()"><i class="fas fa-download"></i> Exportar Excel</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== PANEL ADMIN ===== -->
+            <div id="panel-admin" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-user-shield"></i> Administración</h4>
+                    <hr>
+                    <h5>👥 Usuarios</h5>
+                    <button class="btn btn-success mb-2" onclick="abrirModalUsuario()"><i class="fas fa-plus"></i> Nuevo Usuario</button>
+                    <div class="table-responsive">
+                        <table class="historial-table">
+                            <thead><tr><th>ID</th><th>Usuario</th><th>Nombre</th><th>Rol</th><th>Acciones</th></tr></thead>
+                            <tbody id="tablaUsuarios"><tr><td colspan="5" class="text-center">Cargando...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <hr>
+                    
+                    <!-- CONFIGURACIÓN DE LISTAS -->
+                    <h5><i class="fas fa-edit"></i> Configuración de Listas Desplegables</h5>
+                    <p class="text-muted">Modifica los valores que aparecen en las listas desplegables de todos los módulos.</p>
+                    
+                    <div id="configuracionContainer" style="margin-top: 15px;">
+                        <div class="form-grid">
+                            <div>
+                                <label><strong>🏞️ Embalses</strong></label>
+                                <div id="listaEmbalses" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('embalses')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>👤 Operadores</strong></label>
+                                <div id="listaOperadores" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('operadores')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>🏞️ Diques</strong></label>
+                                <div id="listaDiques" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('diques')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>🏭 Estaciones</strong></label>
+                                <div id="listaEstaciones" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('estaciones')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>🏭 Plantas</strong></label>
+                                <div id="listaPlantas" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('plantas')">+ Agregar</button>
+                            </div>
+                        </div>
+                        <div class="acciones mt-2">
+                            <button class="btn btn-success" onclick="guardarConfiguracion()"><i class="fas fa-save"></i> Guardar Configuración</button>
+                            <button class="btn btn-warning" onclick="cargarConfiguracionAdmin()"><i class="fas fa-sync"></i> Recargar</button>
+                        </div>
+                        <div id="configuracionMensaje" class="mt-2" style="display: none;"></div>
+                    </div>
+                    <hr>
+                    
+                    <h5><i class="fas fa-database"></i> Respaldos de Datos</h5>
+                    <div class="acciones-left">
+                        <button class="btn btn-warning" onclick="crearRespaldo()"><i class="fas fa-save"></i> Crear Respaldo</button>
+                        <button class="btn btn-info" onclick="cargarRespaldos()"><i class="fas fa-list"></i> Ver Respaldos</button>
+                    </div>
+                    <div id="listaRespaldos" class="mt-2"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL WHATSAPP ==================== -->
+<div id="modalWhatsApp" class="modal">
+    <div class="modal-content" style="max-width: 700px;">
+        <h3 id="whatsappModalTitle">📱 Enviar WhatsApp</h3>
+        <hr>
+        <div class="form-grid">
+            <div>
+                <label>📅 FECHA INICIO</label>
+                <input type="date" id="whatsappFechaInicio">
+            </div>
+            <div>
+                <label>📅 FECHA FIN</label>
+                <input type="date" id="whatsappFechaFin">
+            </div>
+        </div>
+        <div id="whatsappRegistrosContainer" style="max-height: 300px; overflow-y: auto; margin: 10px 0;"></div>
+        <div class="acciones" style="justify-content: space-between; flex-wrap: wrap;">
+            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <button class="btn btn-info btn-sm" onclick="seleccionarTodosWhatsApp(true)">✅ Seleccionar todos</button>
+                <button class="btn btn-secondary btn-sm" onclick="seleccionarTodosWhatsApp(false)">❌ Deseleccionar todos</button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="cerrarModalWhatsApp()">Cancelar</button>
+                <button class="btn btn-success" onclick="enviarWhatsAppSeleccionado()"><i class="fab fa-whatsapp"></i> Enviar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ==================== MODAL USUARIO ==================== -->
+<div id="modalUsuario" class="modal">
+    <div class="modal-content">
+        <h3 id="modalUsuarioTitulo">Nuevo Usuario</h3>
+        <input type="hidden" id="editUserId">
+        <label>Usuario</label><input type="text" id="userUsername">
+        <label>Nombre Completo</label><input type="text" id="userNombre">
+        <label>Contraseña</label><input type="password" id="userPassword">
+        <label>Rol</label>
+        <select id="userRol"><option value="Operador">Operador</option><option value="Administrador">Administrador</option></select>
+        <div class="modal-buttons">
+            <button class="btn btn-secondary" onclick="cerrarModalUsuario()">Cancelar</button>
+            <button class="btn btn-success" onclick="guardarUsuario()">Guardar</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ==================== VARIABLES ====================
+let currentUser = null;
+const API_URL = '/api';
+
+// ==================== CONFIGURACIÓN ====================
+let configuracion = {
+    embalses: ['AGUA FRIA', 'LA MARIPOSA'],
+    operadores: ['Juan Pérez', 'María González', 'Carlos López', 'Ana Rodríguez'],
+    diques: ['AGUA FRIA', 'CAÑAOTE', 'QUEBRADA DE LA VIRGEN', 'E/LA CULEBRA', 'EC.TACATA'],
+    estaciones: ['E/B 1 Panamericano', 'E/B 2 Panamericano', 'E/B 3 Panamericano', 'E/B La Matica'],
+    plantas: ['Planta La Guairita', 'Planta Tuy II', 'Planta Los Teques', 'Planta Mariposa']
+};
+
+// ==================== SUSTANCIAS QUÍMICAS ====================
+let sustanciasQuimicas = [
+    { nombre: "CLORO", unidad: "kg", gastos: 0, existencia: 500 },
+    { nombre: "CLORO cil", unidad: "cil", gastos: 0, existencia: 10 },
+    { nombre: "HTH", unidad: "kg", gastos: 0, existencia: 300 },
+    { nombre: "SULFATO DE ALUMINIO", unidad: "kg", gastos: 0, existencia: 1000 },
+    { nombre: "CAL", unidad: "kg", gastos: 0, existencia: 200 }
+];
+
+// ==================== GRUPOS ESTACIONES (5 GRUPOS) ====================
+let gruposData = [
+    { id: 1, nombre: "GRUPO 1", seleccionado: true, condicion: "OPERATIVO", potencia: "" },
+    { id: 2, nombre: "GRUPO 2", seleccionado: true, condicion: "OPERATIVO", potencia: "" },
+    { id: 3, nombre: "GRUPO 3", seleccionado: true, condicion: "OPERATIVO", potencia: "" },
+    { id: 4, nombre: "GRUPO 4", seleccionado: true, condicion: "OPERATIVO", potencia: "" },
+    { id: 5, nombre: "GRUPO 5", seleccionado: true, condicion: "OPERATIVO", potencia: "" }
+];
+
+// ==================== PRESIONES ====================
+let presionesData = [];
+for (let i = 0; i < 24; i++) {
+    presionesData.push({ hora: String(i).padStart(2, '0') + ':00', entrada: '', salida: '' });
+}
+
+// ==================== LOGIN ====================
+async function login() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    const errorMsg = document.getElementById('errorMsg');
+    errorMsg.style.display = 'none';
+
+    if (!username || !password) {
+        errorMsg.textContent = '❌ Ingrese usuario y contraseña';
+        errorMsg.style.display = 'block';
+        return;
+    }
+
+    try {
+        const response = await fetch(API_URL + '/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.error || 'Error al iniciar sesión');
+        }
+
+        const data = await response.json();
+        localStorage.setItem('gecg_token', data.token);
+        localStorage.setItem('gecg_user', JSON.stringify(data.user));
+        currentUser = data.user;
+        
+        mostrarDashboard();
+        
+    } catch (error) {
+        errorMsg.textContent = '❌ ' + error.message;
+        errorMsg.style.display = 'block';
+    }
+}
+
+// ==================== DASHBOARD ====================
+function mostrarDashboard() {
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('dashboardScreen').style.display = 'block';
+    
+    const admin = currentUser.rol === 'Administrador';
+    document.getElementById('sidebarUserName').innerHTML = currentUser.nombre;
+    document.getElementById('sidebarUserRol').innerHTML = currentUser.rol + (admin ? ' <span class="badge-admin">ADMIN</span>' : '');
+    document.getElementById('usuarioActual').innerHTML = currentUser.nombre + ' (' + currentUser.rol + ')';
+    
+    cargarListasDesplegables();
+    inicializarDispositivo();
+    inicializarPlantas();
+    inicializarEstaciones();
+    inicializarDiques();
+    inicializarEmbalses();
+    inicializarManiobras();
+    cargarListaUsuarios();
+    if (admin) {
+        cargarConfiguracionAdmin();
+    }
+}
+
+function logout() {
+    currentUser = null;
+    localStorage.removeItem('gecg_token');
+    localStorage.removeItem('gecg_user');
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('dashboardScreen').style.display = 'none';
+}
+
+function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('active');
+}
+
+// ==================== NAVEGACION ====================
+document.querySelectorAll('.menu-item').forEach(function(item) {
+    item.addEventListener('click', function() {
+        const panel = this.dataset.panel;
+        document.querySelectorAll('.content-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + panel).classList.add('active');
+        document.querySelectorAll('.menu-item').forEach(m => m.classList.remove('active'));
+        this.classList.add('active');
+        
+        const titles = {
+            dispositivo: 'Dispositivo',
+            plantas: 'Plantas Potabilizadoras',
+            estaciones: 'Estaciones de Bombeo',
+            diques: 'Diques',
+            embalses: 'Embalses',
+            maniobras: 'Maniobras',
+            excel: 'Reporte Excel',
+            admin: 'Administración'
+        };
+        document.getElementById('pageTitle').innerHTML = titles[panel] || panel;
+    });
+});
+
+// ==================== API ====================
+async function apiRequest(endpoint, options = {}) {
+    const headers = { 'Content-Type': 'application/json' };
+    const token = localStorage.getItem('gecg_token');
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
+    try {
+        const response = await fetch(API_URL + endpoint, {
+            ...options,
+            headers: headers
+        });
+
+        if (!response.ok) {
+            let errorMsg = 'Error en la petición';
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch (e) {
+                try {
+                    errorMsg = await response.text() || errorMsg;
+                } catch (e2) {
+                    errorMsg = 'Error ' + response.status + ': ' + response.statusText;
+                }
+            }
+            throw new Error(errorMsg);
+        }
+
+        const text = await response.text();
+        if (!text) return {};
+        try {
+            return JSON.parse(text);
+        } catch (e) {
+            return text;
+        }
+    } catch (error) {
+        console.error('API Error:', error);
+        throw error;
+    }
+}
+
+// ============================================================ //
+// ==================== LISTAS DESPLEGABLES ==================== //
+// ============================================================ //
+
+function cargarListasDesplegables() {
+    console.log('🔄 Recargando listas desplegables...');
+    
+    fetch(API_URL + '/configuracion', {
+        headers: {
+            'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+        }
+    })
+    .then(response => response.json())
+    .then(function(config) {
+        if (config.embalses) configuracion.embalses = config.embalses;
+        if (config.operadores) configuracion.operadores = config.operadores;
+        if (config.diques) configuracion.diques = config.diques;
+        if (config.estaciones) configuracion.estaciones = config.estaciones;
+        if (config.plantas) configuracion.plantas = config.plantas;
+        
+        const operadores = '<option value="">Seleccionar...</option>' + 
+            (configuracion.operadores || []).map(o => `<option value="${o}">${o}</option>`).join('');
+        
+        const selects = [
+            'opEntranteDisp', 'opSalienteDisp',
+            'opEntrantePlanta', 'opSalientePlanta',
+            'opEntranteEst', 'opSalienteEst',
+            'opEntranteDique', 'opSalienteDique',
+            'operadorEntranteEmbalse', 'operadorSalienteEmbalse',
+            'responsableManiobra'
+        ];
+        selects.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                const valorActual = el.value;
+                el.innerHTML = operadores;
+                if (valorActual) el.value = valorActual;
+            }
+        });
+
+        const plantas = document.getElementById('plantaSelect');
+        if (plantas) {
+            const valorActual = plantas.value;
+            plantas.innerHTML = '<option value="">Seleccionar...</option>' + 
+                (configuracion.plantas || []).map(p => `<option value="${p}">${p}</option>`).join('');
+            if (valorActual) plantas.value = valorActual;
+        }
+
+        const estaciones = document.getElementById('estacionSelect');
+        if (estaciones) {
+            const valorActual = estaciones.value;
+            estaciones.innerHTML = '<option value="">Seleccionar...</option>' + 
+                (configuracion.estaciones || []).map(e => `<option value="${e}">${e}</option>`).join('');
+            if (valorActual) estaciones.value = valorActual;
+        }
+
+        const diques = document.getElementById('diqueSelect');
+        if (diques) {
+            const valorActual = diques.value;
+            diques.innerHTML = '<option value="">Seleccionar...</option>' + 
+                (configuracion.diques || []).map(d => `<option value="${d}">${d}</option>`).join('');
+            if (valorActual) diques.value = valorActual;
+        }
+
+        const embalses = document.getElementById('embalseSelect');
+        if (embalses) {
+            const valorActual = embalses.value;
+            embalses.innerHTML = '<option value="">Seleccionar...</option>' + 
+                (configuracion.embalses || []).map(e => `<option value="${e}">${e}</option>`).join('');
+            if (valorActual) embalses.value = valorActual;
+        }
+
+        const ubicacion = document.getElementById('ubicacionManiobra');
+        if (ubicacion) {
+            const valorActual = ubicacion.value;
+            const todas = [...(configuracion.estaciones || []), ...(configuracion.plantas || [])];
+            ubicacion.innerHTML = '<option value="">Seleccionar...</option>' + 
+                todas.map(u => `<option value="${u}">${u}</option>`).join('');
+            if (valorActual) ubicacion.value = valorActual;
+        }
+        
+        console.log('✅ Listas desplegables actualizadas');
+    })
+    .catch(function(error) {
+        console.error('❌ Error cargando configuración:', error);
+    });
+}
+
+// ============================================================ //
+// ==================== CONFIGURACIÓN DE LISTAS ==================== //
+// ============================================================ //
+
+async function cargarConfiguracionAdmin() {
+    try {
+        const config = await apiRequest('/configuracion');
+        
+        const tipos = ['embalses', 'operadores', 'diques', 'estaciones', 'plantas'];
+        const containers = {
+            embalses: 'listaEmbalses',
+            operadores: 'listaOperadores',
+            diques: 'listaDiques',
+            estaciones: 'listaEstaciones',
+            plantas: 'listaPlantas'
+        };
+        
+        tipos.forEach(tipo => {
+            const container = document.getElementById(containers[tipo]);
+            if (!container) return;
+            container.innerHTML = '';
+            
+            if (config[tipo] && config[tipo].length > 0) {
+                config[tipo].forEach((item, idx) => {
+                    container.innerHTML += `
+                        <div class="config-item">
+                            <input type="text" class="config-input form-control form-control-sm" data-tipo="${tipo}" data-idx="${idx}" value="${item}">
+                            <button class="btn btn-sm btn-danger" onclick="eliminarItemConfig('${tipo}', ${idx})">✕</button>
+                        </div>
+                    `;
+                });
+            } else {
+                container.innerHTML = '<p class="text-muted">No hay elementos</p>';
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error al cargar configuración:', error);
+    }
+}
+
+function agregarItemConfig(tipo) {
+    const containers = {
+        embalses: 'listaEmbalses',
+        operadores: 'listaOperadores',
+        diques: 'listaDiques',
+        estaciones: 'listaEstaciones',
+        plantas: 'listaPlantas'
+    };
+    
+    const container = document.getElementById(containers[tipo]);
+    if (!container) return;
+    
+    const emptyMsg = container.querySelector('.text-muted');
+    if (emptyMsg) emptyMsg.remove();
+    
+    const idx = container.querySelectorAll('.config-input').length;
+    
+    const div = document.createElement('div');
+    div.className = 'config-item';
+    div.innerHTML = `
+        <input type="text" class="config-input form-control form-control-sm" data-tipo="${tipo}" data-idx="${idx}" value="Nuevo ${tipo.slice(0, -1).toUpperCase()}">
+        <button class="btn btn-sm btn-danger" onclick="eliminarItemConfig('${tipo}', ${idx})">✕</button>
+    `;
+    container.appendChild(div);
+}
+
+function eliminarItemConfig(tipo, idx) {
+    const containers = {
+        embalses: 'listaEmbalses',
+        operadores: 'listaOperadores',
+        diques: 'listaDiques',
+        estaciones: 'listaEstaciones',
+        plantas: 'listaPlantas'
+    };
+    
+    const container = document.getElementById(containers[tipo]);
+    if (!container) return;
+    
+    const items = container.querySelectorAll('.config-item');
+    if (items.length <= 1) {
+        const input = items[0].querySelector('.config-input');
+        if (input) input.value = '';
+        return;
+    }
+    
+    const itemToRemove = items[idx];
+    if (itemToRemove) {
+        itemToRemove.remove();
+        const remaining = container.querySelectorAll('.config-input');
+        remaining.forEach((input, newIdx) => {
+            input.dataset.idx = newIdx;
+        });
+    }
+}
+
+async function guardarConfiguracion() {
+    try {
+        const tipos = ['embalses', 'operadores', 'diques', 'estaciones', 'plantas'];
+        const containers = {
+            embalses: 'listaEmbalses',
+            operadores: 'listaOperadores',
+            diques: 'listaDiques',
+            estaciones: 'listaEstaciones',
+            plantas: 'listaPlantas'
+        };
+        
+        const mensajeContainer = document.getElementById('configuracionMensaje');
+        mensajeContainer.style.display = 'none';
+        
+        let todoOk = true;
+        let errores = [];
+        
+        for (const tipo of tipos) {
+            const container = document.getElementById(containers[tipo]);
+            if (!container) continue;
+            
+            const inputs = container.querySelectorAll('.config-input');
+            const valores = [];
+            inputs.forEach(input => {
+                const valor = input.value.trim();
+                if (valor) valores.push(valor);
+            });
+            
+            if (valores.length === 0) {
+                valores.push('Seleccionar...');
+            }
+            
+            try {
+                await apiRequest('/configuracion', {
+                    method: 'POST',
+                    body: JSON.stringify({ tipo, valores })
+                });
+            } catch (error) {
+                todoOk = false;
+                errores.push(`${tipo}: ${error.message}`);
+            }
+        }
+        
+        if (todoOk) {
+            mensajeContainer.innerHTML = `<div class="alert alert-success">✅ Configuración guardada correctamente</div>`;
+            mensajeContainer.style.display = 'block';
+            
+            await cargarConfiguracionAdmin();
+            await cargarListasDesplegables();
+            
+            setTimeout(() => {
+                mensajeContainer.style.display = 'none';
+            }, 3000);
+        } else {
+            mensajeContainer.innerHTML = `<div class="alert alert-danger">❌ Error: ${errores.join('; ')}</div>`;
+            mensajeContainer.style.display = 'block';
+        }
+        
+    } catch (error) {
+        const mensajeContainer = document.getElementById('configuracionMensaje');
+        mensajeContainer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+        mensajeContainer.style.display = 'block';
+    }
+}
+
+// ============================================================ //
+// ==================== WHATSAPP MODAL ==================== //
+// ============================================================ //
+
+let whatsappRegistrosActuales = [];
+let whatsappTablaActual = '';
+let whatsappCallback = null;
+
+function abrirModalWhatsApp(tabla, callback) {
+    whatsappTablaActual = tabla;
+    whatsappCallback = callback;
+    
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('whatsappFechaInicio').value = hoy;
+    document.getElementById('whatsappFechaFin').value = hoy;
+    
+    const nombres = {
+        embalses: 'Embalses',
+        plantas: 'Plantas',
+        estaciones: 'Estaciones',
+        diques: 'Diques',
+        maniobras: 'Maniobras',
+        presiones: 'Dispositivo'
+    };
+    document.getElementById('whatsappModalTitle').textContent = '📱 Enviar WhatsApp - ' + (nombres[tabla] || tabla);
+    
+    document.getElementById('modalWhatsApp').style.display = 'flex';
+    cargarRegistrosWhatsApp();
+}
+
+function cerrarModalWhatsApp() {
+    document.getElementById('modalWhatsApp').style.display = 'none';
+}
+
+async function cargarRegistrosWhatsApp() {
+    const container = document.getElementById('whatsappRegistrosContainer');
+    container.innerHTML = '<p class="text-muted">Cargando registros...</p>';
+    
+    try {
+        const registros = await apiRequest('/' + whatsappTablaActual);
+        whatsappRegistrosActuales = registros || [];
+        
+        if (whatsappRegistrosActuales.length === 0) {
+            container.innerHTML = '<p class="text-muted">No hay registros disponibles</p>';
+            return;
+        }
+        
+        const fechaInicio = document.getElementById('whatsappFechaInicio').value;
+        const fechaFin = document.getElementById('whatsappFechaFin').value;
+        
+        let filtrados = whatsappRegistrosActuales;
+        if (fechaInicio && fechaFin) {
+            filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
+        }
+        
+        if (filtrados.length === 0) {
+            container.innerHTML = '<p class="text-muted">No hay registros en el rango de fechas</p>';
+            return;
+        }
+        
+        let html = '<table class="historial-table"><thead><tr><th><input type="checkbox" id="whatsappSelectAll" onchange="seleccionarTodosWhatsApp(this.checked)"></th><th>Fecha</th><th>Detalle</th></tr></thead><tbody>';
+        filtrados.forEach((r, idx) => {
+            let detalle = '';
+            if (r.embalse) detalle = 'Embalse: ' + r.embalse;
+            else if (r.planta) detalle = 'Planta: ' + r.planta;
+            else if (r.estacion) detalle = 'Estación: ' + r.estacion;
+            else if (r.dique) detalle = 'Dique: ' + r.dique;
+            else if (r.ubicacion) detalle = 'Ubicación: ' + r.ubicacion;
+            else detalle = 'Registro ' + (idx + 1);
+            
+            html += `<tr>
+                <td><input type="checkbox" class="whatsapp-checkbox" value="${idx}" checked></td>
+                <td>${r.fecha || '-'}</td>
+                <td>${detalle}</td>
+            </tr>`;
+        });
+        html += '</tbody></table>';
+        container.innerHTML = html;
+        
+    } catch (error) {
+        container.innerHTML = '<p class="text-danger">Error: ' + error.message + '</p>';
+    }
+}
+
+function seleccionarTodosWhatsApp(seleccionar) {
+    document.querySelectorAll('.whatsapp-checkbox').forEach(cb => cb.checked = seleccionar);
+    const selectAll = document.getElementById('whatsappSelectAll');
+    if (selectAll) selectAll.checked = seleccionar;
+}
+
+document.getElementById('whatsappFechaInicio')?.addEventListener('change', cargarRegistrosWhatsApp);
+document.getElementById('whatsappFechaFin')?.addEventListener('change', cargarRegistrosWhatsApp);
+
+function enviarWhatsAppSeleccionado() {
+    const checkboxes = document.querySelectorAll('.whatsapp-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('❌ Seleccione al menos un registro');
+        return;
+    }
+    
+    const indices = Array.from(checkboxes).map(cb => parseInt(cb.value));
+    const registros = whatsappRegistrosActuales.filter((r, idx) => indices.includes(idx));
+    
+    if (whatsappCallback) {
+        whatsappCallback(registros);
+    }
+    cerrarModalWhatsApp();
+}
+
+// ============================================================ //
+// ==================== ELIMINAR REGISTRO ==================== //
+// ============================================================ //
+
+async function eliminarRegistro(tabla, id) {
+    if (confirm('¿Eliminar este registro?')) {
+        try {
+            await apiRequest('/' + tabla + '/' + id, { method: 'DELETE' });
+            alert('✅ Registro eliminado');
+            switch(tabla) {
+                case 'plantas': cargarHistorialPlantas(); break;
+                case 'estaciones': cargarHistorialEstaciones(); break;
+                case 'diques': cargarHistorialDiques(); break;
+                case 'embalses': cargarHistorialEmbalses(); break;
+                case 'maniobras': cargarHistorialManiobras(); break;
+                case 'presiones': cargarHistorialPresiones(); break;
+            }
+        } catch (error) {
+            alert('❌ Error: ' + error.message);
+        }
+    }
+}
+
+// ============================================================ //
+// ==================== DISPOSITIVO ==================== //
+// ============================================================ //
+
+function inicializarDispositivo() {
+    document.getElementById('fechaDispositivo').value = new Date().toISOString().split('T')[0];
+    renderizarPresiones();
+    cargarHistorialPresiones();
+}
+
+function renderizarPresiones() {
+    const container = document.getElementById('presionesContainer');
+    container.innerHTML = '<div class="presion-fila" style="background:#e8f5e9; font-weight:bold;"><label>HORA</label><label>P/E (Entrada)</label><label>P/S (Salida)</label></div>';
+    presionesData.forEach((p, idx) => {
+        container.innerHTML += `
+            <div class="presion-fila">
+                <label>${p.hora}</label>
+                <div><input type="number" step="0.1" class="presion-entrada" data-idx="${idx}" value="${p.entrada}" placeholder="PSI"></div>
+                <div><input type="number" step="0.1" class="presion-salida" data-idx="${idx}" value="${p.salida}" placeholder="PSI"></div>
+            </div>
+        `;
+    });
+    document.querySelectorAll('.presion-entrada').forEach(inp => {
+        inp.addEventListener('change', function() {
+            presionesData[parseInt(this.dataset.idx)].entrada = this.value;
+        });
+    });
+    document.querySelectorAll('.presion-salida').forEach(inp => {
+        inp.addEventListener('change', function() {
+            presionesData[parseInt(this.dataset.idx)].salida = this.value;
+        });
+    });
+}
+
+async function cargarHistorialPresiones() {
+    try {
+        const registros = await apiRequest('/presiones');
+        const tbody = document.getElementById('cuerpoHistorialPresiones');
+        if (!tbody) return;
+        
+        if (!registros || registros.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay registros</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = registros.map(function(r) {
+            let totalPresiones = 0;
+            try {
+                const presiones = typeof r.presiones === 'string' ? JSON.parse(r.presiones) : r.presiones;
+                if (Array.isArray(presiones)) totalPresiones = presiones.length;
+            } catch(e) {}
+            
+            return '<tr>' +
+                '<td>' + (r.fecha || '-') + '</td>' +
+                '<td>' + (r.operador_entrante || '-') + '</td>' +
+                '<td>' + (r.operador_saliente || '-') + '</td>' +
+                '<td>' + totalPresiones + ' horas</td>' +
+                '<td><button class="btn-small" onclick="eliminarRegistro(\'presiones\', ' + r.id + ')">Eliminar</button></td>' +
+                '</tr>';
+        }).join('');
+        
+    } catch (error) {
+        console.error('Error al cargar historial de presiones:', error);
+    }
+}
+
+function abrirModalWhatsAppDispositivo() {
+    const modal = document.getElementById('modalWhatsApp');
+    document.getElementById('whatsappModalTitle').textContent = '📱 Enviar WhatsApp - Dispositivo';
+    
+    const hoy = new Date().toISOString().split('T')[0];
+    document.getElementById('whatsappFechaInicio').value = hoy;
+    document.getElementById('whatsappFechaFin').value = hoy;
+    
+    const container = document.getElementById('whatsappRegistrosContainer');
+    
+    let html = `
+        <div style="margin: 10px 0;">
+            <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px;">
+                <button class="btn btn-info btn-sm" onclick="seleccionarTodasHorasPresiones(true)">✅ Seleccionar todas</button>
+                <button class="btn btn-secondary btn-sm" onclick="seleccionarTodasHorasPresiones(false)">❌ Deseleccionar todas</button>
+            </div>
+            <div style="max-height: 250px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;">
+                <table class="historial-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="selectAllPresiones" onchange="seleccionarTodasHorasPresiones(this.checked)"></th>
+                            <th>Hora</th>
+                            <th>Entrada (PSI)</th>
+                            <th>Salida (PSI)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+    `;
+    
+    presionesData.forEach((p, idx) => {
+        const entrada = document.getElementById(`presionEntrada_${idx}`)?.value || p.entrada || '';
+        const salida = document.getElementById(`presionSalida_${idx}`)?.value || p.salida || '';
+        html += `
+            <tr>
+                <td><input type="checkbox" class="hora-presion-checkbox" data-idx="${idx}" checked></td>
+                <td><strong>${p.hora}</strong></td>
+                <td>${entrada || '-'}</td>
+                <td>${salida || '-'}</td>
+            </tr>
+        `;
+    });
+    
+    html += `
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    `;
+    
+    container.innerHTML = html;
+    
+    const modalFooter = modal.querySelector('.acciones');
+    if (modalFooter) {
+        modalFooter.innerHTML = `
+            <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                <button class="btn btn-info btn-sm" onclick="seleccionarTodasHorasPresiones(true)">✅ Seleccionar todas</button>
+                <button class="btn btn-secondary btn-sm" onclick="seleccionarTodasHorasPresiones(false)">❌ Deseleccionar todas</button>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" onclick="cerrarModalWhatsApp()">Cancelar</button>
+                <button class="btn btn-success" onclick="enviarWhatsAppPresionesSeleccionadas()"><i class="fab fa-whatsapp"></i> Enviar</button>
+            </div>
+        `;
+    }
+    
+    modal.style.display = 'flex';
+}
+
+function seleccionarTodasHorasPresiones(seleccionar) {
+    document.querySelectorAll('.hora-presion-checkbox').forEach(cb => cb.checked = seleccionar);
+    const selectAll = document.getElementById('selectAllPresiones');
+    if (selectAll) selectAll.checked = seleccionar;
+}
+
+function enviarWhatsAppPresionesSeleccionadas() {
+    const checkboxes = document.querySelectorAll('.hora-presion-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('❌ Seleccione al menos una hora');
+        return;
+    }
+    
+    const indices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.idx));
+    
+    const fecha = document.getElementById('fechaDispositivo').value || 'No definida';
+    const opE = document.getElementById('opEntranteDisp').value || '-';
+    const opS = document.getElementById('opSalienteDisp').value || '-';
+    
+    let texto = '*GECG - DISPOSITIVO - PRESIONES*\n';
+    texto += `📅 Fecha: ${fecha}\n`;
+    texto += `👤 Op.E: ${opE}\n`;
+    texto += `👥 Op.S: ${opS}\n`;
+    texto += '━━━━━━━━━━━━━━━━━━━━━\n\n';
+    
+    indices.forEach(idx => {
+        const p = presionesData[idx];
+        const entrada = document.getElementById(`presionEntrada_${idx}`)?.value || p.entrada || '-';
+        const salida = document.getElementById(`presionSalida_${idx}`)?.value || p.salida || '-';
+        texto += `🕐 ${p.hora}\n`;
+        texto += `   📥 Entrada: ${entrada} PSI\n`;
+        texto += `   📤 Salida: ${salida} PSI\n\n`;
+    });
+    
+    texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
+    
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+    cerrarModalWhatsApp();
+}
+
+async function guardarDispositivo() {
+    const fecha = document.getElementById('fechaDispositivo').value;
+    const opE = document.getElementById('opEntranteDisp').value;
+    const opS = document.getElementById('opSalienteDisp').value;
+    
+    if (!fecha || !opE || !opS) {
+        alert('❌ Complete todos los campos');
+        return;
+    }
+    
+    document.querySelectorAll('.presion-entrada').forEach(inp => {
+        presionesData[parseInt(inp.dataset.idx)].entrada = inp.value || '0';
+    });
+    document.querySelectorAll('.presion-salida').forEach(inp => {
+        presionesData[parseInt(inp.dataset.idx)].salida = inp.value || '0';
+    });
+    
+    const data = { 
+        fecha: fecha, 
+        operador_entrante: opE, 
+        operador_saliente: opS, 
+        presiones: presionesData 
+    };
+    
+    try {
+        await apiRequest('/presiones', { method: 'POST', body: JSON.stringify(data) });
+        alert('✅ Presiones guardadas correctamente');
+        cargarHistorialPresiones();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+// ============================================================ //
+// ==================== PLANTAS ==================== //
+// ============================================================ //
+
+function inicializarPlantas() {
+    document.getElementById('fechaPlanta').value = new Date().toISOString().split('T')[0];
+    renderizarTablaQuimicos();
+    cargarHistorialPlantas();
+}
+
+function renderizarTablaQuimicos() {
+    const tbody = document.getElementById('cuerpoQuimicos');
+    tbody.innerHTML = sustanciasQuimicas.map((s, idx) => `
+        <tr>
+            <td><strong>${s.nombre}</strong></td>
+            <td>${s.unidad}</td>
+            <td><input type="number" step="0.1" class="gasto-input" data-idx="${idx}" value="${s.gastos}"></td>
+            <td><input type="number" step="0.1" value="${s.existencia}" readonly style="background:#e9ecef;"></td>
+            <td><button class="btn-recargar" onclick="recargarProducto(${idx})">Recargar</button></td>
+        </tr>
+    `).join('');
+    document.querySelectorAll('.gasto-input').forEach(inp => {
+        inp.addEventListener('change', function() {
+            const idx = parseInt(this.dataset.idx);
+            const nuevo = parseFloat(this.value) || 0;
+            if (nuevo > sustanciasQuimicas[idx].existencia) {
+                alert('Existencia insuficiente');
+                this.value = sustanciasQuimicas[idx].gastos;
+                return;
+            }
+            sustanciasQuimicas[idx].gastos = nuevo;
+            sustanciasQuimicas[idx].existencia -= nuevo;
+            renderizarTablaQuimicos();
+        });
+    });
+}
+
+function recargarProducto(idx) {
+    const cant = prompt('Cantidad a recargar:');
+    if (cant && !isNaN(parseFloat(cant))) {
+        sustanciasQuimicas[idx].existencia += parseFloat(cant);
+        renderizarTablaQuimicos();
+        alert('✅ Recarga exitosa');
+    }
+}
+
+async function guardarPlanta() {
+    const fecha = document.getElementById('fechaPlanta').value;
+    const planta = document.getElementById('plantaSelect').value;
+    const opE = document.getElementById('opEntrantePlanta').value;
+    const opS = document.getElementById('opSalientePlanta').value;
+    
+    if (!fecha || !planta || !opE || !opS) {
+        alert('❌ Complete todos los campos');
+        return;
+    }
+    
+    const data = {
+        fecha, planta, operador_entrante: opE, operador_saliente: opS,
+        turbiedad: document.getElementById('turbiedadPlanta').value,
+        color: document.getElementById('colorPlanta').value,
+        cloro_residual: document.getElementById('cloroPlanta').value,
+        ph: document.getElementById('phPlanta').value,
+        produccion: document.getElementById('produccionPlanta').value,
+        sustancias: sustanciasQuimicas,
+        usuario: currentUser.nombre
+    };
+    
+    try {
+        await apiRequest('/plantas', { method: 'POST', body: JSON.stringify(data) });
+        alert('✅ Registro guardado correctamente');
+        sustanciasQuimicas.forEach(s => s.gastos = 0);
+        renderizarTablaQuimicos();
+        cargarHistorialPlantas();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function cargarHistorialPlantas() {
+    try {
+        const registros = await apiRequest('/plantas');
+        const tbody = document.getElementById('cuerpoHistorialPlantas');
+        if (!registros || registros.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros</td></tr>';
+            return;
+        }
+        tbody.innerHTML = registros.map(r => `
+            <tr>
+                <td>${r.fecha}</td>
+                <td>${r.planta}</td>
+                <td>${r.produccion || '-'} L/s</td>
+                <td>${r.operador_entrante || '-'}</td>
+                <td>${r.operador_saliente || '-'}</td>
+                <td><button class="btn-small" onclick="eliminarRegistro('plantas', ${r.id})">Eliminar</button></td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+function enviarWhatsAppPlantas() {
+    abrirModalWhatsApp('plantas', function(registros) {
+        let texto = '*GECG - PLANTAS POTABILIZADORAS*\n';
+        texto += '━━━━━━━━━━━━━━━━━━\n';
+        registros.forEach(r => {
+            texto += `📅 ${r.fecha}\n🏭 ${r.planta}\n👤 Op.E: ${r.operador_entrante || '-'}\n👥 Op.S: ${r.operador_saliente || '-'}\n📊 Producción: ${r.produccion || '-'} L/s\n🧪 pH: ${r.ph || '-'}\n🧪 Cloro: ${r.cloro_residual || '-'} ppm\n━━━━━━━━━━━━━━━━━━\n`;
+        });
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+    });
+}
+
+// ============================================================ //
+// ==================== ESTACIONES ==================== //
+// ============================================================ //
+
+function inicializarEstaciones() {
+    document.getElementById('fechaEstacion').value = new Date().toISOString().split('T')[0];
+    renderizarGruposEstaciones();
+    cargarHistorialEstaciones();  // ← Esta línea debe existir
+}
+
+function renderizarGruposEstaciones() {
+    const container = document.getElementById('gruposContainerEst');
+    container.innerHTML = gruposData.map((g, idx) => `
+        <div class="grupo-card">
+            <div class="grupo-header">
+                <div>
+                    <input type="checkbox" class="grupo-check" data-idx="${idx}" ${g.seleccionado ? 'checked' : ''}>
+                    <h6 style="display:inline-block; margin-left:10px;">${g.nombre}</h6>
+                </div>
+            </div>
+            <div class="grupo-filas">
+                <div class="campo-grupo">
+                    <label>CONDICIÓN</label>
+                    <select class="condicion-select" data-idx="${idx}">
+                        <option value="OPERATIVO" ${g.condicion === 'OPERATIVO' ? 'selected' : ''}>OPERATIVO</option>
+                        <option value="INOPERATIVO" ${g.condicion === 'INOPERATIVO' ? 'selected' : ''}>INOPERATIVO</option>
+                        <option value="MANTENIMIENTO" ${g.condicion === 'MANTENIMIENTO' ? 'selected' : ''}>MANTENIMIENTO</option>
+                        <option value="RESERVA" ${g.condicion === 'RESERVA' ? 'selected' : ''}>RESERVA</option>
+                    </select>
+                </div>
+                <div class="campo-grupo">
+                    <label>POTENCIA (KW)</label>
+                    <input type="number" step="0.1" class="potencia-input" data-idx="${idx}" value="${g.potencia}" placeholder="KW">
+                </div>
+            </div>
+        </div>
+    `).join('');
+    
+    document.querySelectorAll('.grupo-check').forEach(cb => {
+        cb.addEventListener('change', function() {
+            gruposData[parseInt(this.dataset.idx)].seleccionado = this.checked;
+        });
+    });
+    document.querySelectorAll('.condicion-select').forEach(sel => {
+        sel.addEventListener('change', function() {
+            gruposData[parseInt(this.dataset.idx)].condicion = this.value;
+        });
+    });
+    document.querySelectorAll('.potencia-input').forEach(inp => {
+        inp.addEventListener('change', function() {
+            gruposData[parseInt(this.dataset.idx)].potencia = this.value;
+        });
+    });
+}
+
+async function guardarEstacion() {
+    const fecha = document.getElementById('fechaEstacion').value;
+    const estacion = document.getElementById('estacionSelect').value;
+    const opE = document.getElementById('opEntranteEst').value;
+    const opS = document.getElementById('opSalienteEst').value;
+    
+    if (!fecha || !estacion || !opE || !opS) {
+        alert('❌ Complete todos los campos');
+        return;
+    }
+    
+    const tension = parseFloat(document.getElementById('tensionEst').value) || 0;
+    const succion = parseFloat(document.getElementById('succionEst').value) || 0;
+    const potencia = parseFloat(document.getElementById('potenciaEst').value) || 0;
+    const descarga = parseFloat(document.getElementById('descargaEst').value) || 0;
+    
+    const grupos = gruposData.filter(g => g.seleccionado);
+    
+    const data = {
+        fecha, estacion, operador_entrante: opE, operador_saliente: opS,
+        tension, succion, potencia, descarga,
+        grupos: grupos,
+        usuario: currentUser.nombre
+    };
+    
+    try {
+        await apiRequest('/estaciones', { method: 'POST', body: JSON.stringify(data) });
+        alert('✅ Registro guardado correctamente');
+        cargarHistorialEstaciones();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function cargarHistorialEstaciones() {
+    try {
+        console.log('📋 Cargando historial de Estaciones...');
+        const registros = await apiRequest('/estaciones');
+        console.log('📋 Registros recibidos:', registros);
+        
+        const tbody = document.getElementById('cuerpoHistorialEstaciones');
+        if (!tbody) {
+            console.error('❌ No se encontró el elemento cuerpoHistorialEstaciones');
+            return;
+        }
+        
+        if (!registros || registros.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = registros.map(function(r) {
+            // Obtener nombres de grupos
+            let gruposNombres = '';
+            try {
+                if (r.grupos) {
+                    const grupos = typeof r.grupos === 'string' ? JSON.parse(r.grupos) : r.grupos;
+                    if (Array.isArray(grupos)) {
+                        gruposNombres = grupos.filter(function(g) { return g.seleccionado; }).map(function(g) { return g.nombre; }).join(', ');
+                    }
+                }
+            } catch(e) {
+                gruposNombres = '';
+            }
+            
+            return '<tr>' +
+                '<td>' + (r.fecha || '-') + '</td>' +
+                '<td>' + (r.estacion || '-') + '</td>' +
+                '<td>' + (gruposNombres || '-') + '</td>' +
+                '<td>' + (r.operador_entrante || '-') + '</td>' +
+                '<td>' + (r.operador_saliente || '-') + '</td>' +
+                '<td><button class="btn-small" onclick="eliminarRegistro(\'estaciones\', ' + r.id + ')">Eliminar</button></td>' +
+                '</tr>';
+        }).join('');
+        
+        console.log('✅ Historial de Estaciones actualizado');
+        
+    } catch (error) {
+        console.error('❌ Error al cargar historial de Estaciones:', error);
+        const tbody = document.getElementById('cuerpoHistorialEstaciones');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar registros</td></tr>';
+        }
+    }
+}
+function enviarWhatsAppEstaciones() {
+    const fecha = document.getElementById('fechaEstacion').value || 'No definida';
+    const estacion = document.getElementById('estacionSelect').value || 'No definida';
+    const opE = document.getElementById('opEntranteEst').value || '-';
+    const opS = document.getElementById('opSalienteEst').value || '-';
+    const tension = document.getElementById('tensionEst').value || '-';
+    const succion = document.getElementById('succionEst').value || '-';
+    const potencia = document.getElementById('potenciaEst').value || '-';
+    const descarga = document.getElementById('descargaEst').value || '-';
+    
+    const gruposSeleccionados = gruposData.filter(g => g.seleccionado);
+    let gruposTexto = 'Ninguno seleccionado';
+    if (gruposSeleccionados.length > 0) {
+        gruposTexto = gruposSeleccionados.map(g => 
+            g.nombre + ' (' + g.condicion + ')' + (g.potencia ? ' - ' + g.potencia + 'KW' : '')
+        ).join('\n   ');
+    }
+    
+    const texto = '*GECG - ESTACIONES DE BOMBEO*\n' +
+        '📅 Fecha: ' + fecha + '\n' +
+        '🏭 Estación: ' + estacion + '\n' +
+        '👤 Op.E: ' + opE + '\n' +
+        '👥 Op.S: ' + opS + '\n' +
+        '━━━━━━━━━━━━━━━━━━━━━\n' +
+        '⚡ Tensión: ' + tension + ' KV\n' +
+        '💧 Succión: ' + succion + ' m\n' +
+        '⚙️ Potencia: ' + potencia + ' KW\n' +
+        '📈 Descarga: ' + descarga + ' mca\n' +
+        '━━━━━━━━━━━━━━━━━━━━━\n' +
+        '🔧 GRUPOS OPERATIVOS:\n' +
+        '   ' + gruposTexto + '\n' +
+        '━━━━━━━━━━━━━━━━━━━━━\n' +
+        '👤 Generado por: ' + (currentUser ? currentUser.nombre : 'Usuario');
+    
+    window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+}
+
+// ============================================================ //
+// ==================== DIQUES ==================== //
+// ============================================================ //
+
+function inicializarDiques() {
+    document.getElementById('fechaDique').value = new Date().toISOString().split('T')[0];
+    document.getElementById('horaDique').value = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    cargarHistorialDiques();
+}
+
+async function guardarDique() {
+    const fecha = document.getElementById('fechaDique').value;
+    const dique = document.getElementById('diqueSelect').value;
+    const opE = document.getElementById('opEntranteDique').value;
+    const opS = document.getElementById('opSalienteDique').value;
+    const situacion = document.querySelector('input[name="situacionDique"]:checked');
+    
+    if (!fecha || !dique || !opE || !opS) {
+        alert('❌ Complete todos los campos');
+        return;
+    }
+    
+    const data = {
+        fecha, hora: document.getElementById('horaDique').value,
+        dique, operador_entrante: opE, operador_saliente: opS,
+        cota: document.getElementById('cotaDique').value,
+        caudal: document.getElementById('caudalDique').value,
+        ph: document.getElementById('phDique').value,
+        turbiedad: document.getElementById('turbiedadDique').value,
+        situacion: situacion ? situacion.value : '',
+        detalle: document.getElementById('detalleDique').value,
+        usuario: currentUser.nombre
+    };
+    
+    try {
+        await apiRequest('/diques', { method: 'POST', body: JSON.stringify(data) });
+        alert('✅ Registro guardado correctamente');
+        cargarHistorialDiques();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function cargarHistorialDiques() {
+    try {
+        const registros = await apiRequest('/diques');
+        const tbody = document.getElementById('cuerpoHistorialDiques');
+        if (!registros || registros.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros</td></tr>';
+            return;
+        }
+        tbody.innerHTML = registros.map(r => `
+            <tr>
+                <td>${r.fecha}</td>
+                <td>${r.dique}</td>
+                <td>${r.cota || '-'} m</td>
+                <td>${r.operador_entrante || '-'}</td>
+                <td>${r.operador_saliente || '-'}</td>
+                <td><button class="btn-small" onclick="eliminarRegistro('diques', ${r.id})">Eliminar</button></td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+function enviarWhatsAppDiques() {
+    abrirModalWhatsApp('diques', function(registros) {
+        let texto = '*GECG - DIQUES*\n';
+        texto += '━━━━━━━━━━━━━━━━━━\n';
+        registros.forEach(r => {
+            texto += `📅 ${r.fecha}\n🏞️ ${r.dique}\n👤 Op.E: ${r.operador_entrante || '-'}\n👥 Op.S: ${r.operador_saliente || '-'}\n📏 Cota: ${r.cota || '-'} m\n🧪 pH: ${r.ph || '-'}\n📝 Situación: ${r.situacion || 'No especificada'}\n━━━━━━━━━━━━━━━━━━\n`;
+        });
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+    });
+}
+
+// ============================================================ //
+// ==================== EMBALSES ==================== //
+// ============================================================ //
+
+function inicializarEmbalses() {
+    document.getElementById('fechaEmbalse').value = new Date().toISOString().split('T')[0];
+    cargarHistorialEmbalses();
+}
+
+function calcularEstado() {
+    const cotaEmbalse = parseFloat(document.getElementById('cotaEmbalse').value) || 0;
+    const cotaParada = parseFloat(document.getElementById('cotaParada').value) || 0;
+    const cotaArranque = parseFloat(document.getElementById('cotaArranque').value) || 0;
+    const diferencia = cotaArranque - cotaParada;
+    document.getElementById('diferenciaCotas').value = diferencia.toFixed(2) + ' m';
+    
+    let estadoHtml = '', estadoClass = '';
+    if (cotaEmbalse >= cotaArranque && cotaArranque > 0) {
+        estadoClass = 'estado-operativo';
+        estadoHtml = '✅ OPERATIVO';
+    } else if (cotaEmbalse <= cotaParada && cotaParada > 0) {
+        estadoClass = 'estado-parada';
+        estadoHtml = '⚠️ EN PARADA';
+    } else if (cotaEmbalse > cotaParada && cotaEmbalse < cotaArranque && cotaArranque > 0) {
+        estadoClass = 'estado-transicion';
+        estadoHtml = '⚡ TRANSICIÓN';
+    } else {
+        estadoClass = 'estado-info';
+        estadoHtml = 'Ingrese las cotas';
+    }
+    document.getElementById('estadoEmbalseInfo').className = 'estado-box ' + estadoClass;
+    document.getElementById('estadoEmbalseInfo').textContent = estadoHtml;
+}
+
+async function guardarEmbalse() {
+    const fecha = document.getElementById('fechaEmbalse').value;
+    const embalse = document.getElementById('embalseSelect').value;
+    const opE = document.getElementById('operadorEntranteEmbalse').value;
+    const opS = document.getElementById('operadorSalienteEmbalse').value;
+    
+    if (!fecha || !embalse || !opE || !opS) {
+        alert('❌ Complete todos los campos');
+        return;
+    }
+    
+    const ce = parseFloat(document.getElementById('cotaEmbalse').value) || 0;
+    const ca = parseFloat(document.getElementById('cotaArranque').value) || 0;
+    const cp = parseFloat(document.getElementById('cotaParada').value) || 0;
+    const diferencia = ca - cp;
+    
+    let estado = '';
+    if (ce >= ca && ca > 0) estado = 'OPERATIVO';
+    else if (ce <= cp && cp > 0) estado = 'EN PARADA';
+    else if (ce > cp && ce < ca && ca > 0) estado = 'TRANSICIÓN';
+    else estado = 'SIN DATOS';
+    
+    const data = {
+        fecha, embalse, operador_entrante: opE, operador_saliente: opS,
+        cota_embalse: document.getElementById('cotaEmbalse').value || '0',
+        cota_parada: document.getElementById('cotaParada').value || '0',
+        cota_arranque: document.getElementById('cotaArranque').value || '0',
+        diferencia: diferencia.toFixed(2) + ' m',
+        estado,
+        observaciones: document.getElementById('obsEmbalse').value || '',
+        usuario: currentUser.nombre
+    };
+    
+    try {
+        await apiRequest('/embalses', { method: 'POST', body: JSON.stringify(data) });
+        alert('✅ Registro guardado correctamente');
+        document.getElementById('cotaEmbalse').value = '';
+        document.getElementById('cotaParada').value = '';
+        document.getElementById('cotaArranque').value = '';
+        document.getElementById('obsEmbalse').value = '';
+        document.getElementById('diferenciaCotas').value = '';
+        document.getElementById('estadoEmbalseInfo').className = 'estado-box estado-info';
+        document.getElementById('estadoEmbalseInfo').textContent = 'Ingrese las cotas';
+        cargarHistorialEmbalses();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function cargarHistorialEmbalses() {
+    try {
+        const registros = await apiRequest('/embalses');
+        const tbody = document.getElementById('cuerpoHistorialEmbalses');
+        if (!registros || registros.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center">No hay registros</td></tr>';
+            return;
+        }
+        tbody.innerHTML = registros.map(r => `
+            <tr>
+                <td>${r.fecha}</td>
+                <td>${r.embalse}</td>
+                <td>${r.cota_embalse || '-'} m</td>
+                <td>${r.estado || '-'}</td>
+                <td>${r.operador_entrante || '-'}</td>
+                <td>${r.operador_saliente || '-'}</td>
+                <td><button class="btn-small" onclick="eliminarRegistro('embalses', ${r.id})">Eliminar</button></td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+function enviarWhatsAppEmbalse() {
+    abrirModalWhatsApp('embalses', function(registros) {
+        let texto = '*GECG - EMBALSES - REPORTE DE COTAS*\n';
+        texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+        registros.forEach(r => {
+            texto += `📅 Fecha: ${r.fecha}\n`;
+            texto += `🏞️ Embalse: ${r.embalse}\n`;
+            texto += `👤 Op.E: ${r.operador_entrante || '-'}\n`;
+            texto += `👥 Op.S: ${r.operador_saliente || '-'}\n`;
+            texto += `📊 ESTADO: ${r.estado || 'SIN DATOS'}\n`;
+            texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            texto += `📍 Cota Embalse: ${r.cota_embalse || '-'} m\n`;
+            texto += `🛑 Cota Parada: ${r.cota_parada || '-'} m\n`;
+            texto += `▶️ Cota Arranque: ${r.cota_arranque || '-'} m\n`;
+            texto += `⚡ Diferencia: ${r.diferencia || '-'}\n`;
+            if (r.estado === 'EN PARADA') {
+                texto += `⚠️ **EMBALSE EN PARADA**\n`;
+                texto += `⏳ Cota actual (${r.cota_embalse || '-'} m) está por debajo de cota de parada (${r.cota_parada || '-'} m)\n`;
+            } else if (r.estado === 'OPERATIVO') {
+                texto += `✅ **EMBALSE OPERATIVO**\n`;
+                texto += `📈 Cota actual (${r.cota_embalse || '-'} m) está por encima de cota de arranque (${r.cota_arranque || '-'} m)\n`;
+            } else if (r.estado === 'TRANSICIÓN') {
+                texto += `⚡ **ZONA DE TRANSICIÓN**\n`;
+                texto += `📊 Cota actual (${r.cota_embalse || '-'} m) está entre cotas de parada y arranque\n`;
+            }
+            texto += `📝 Obs: ${r.observaciones || 'Sin observaciones'}\n`;
+            texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        });
+        texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+    });
+}
+
+// ============================================================ //
+// ==================== MANIOBRAS ==================== //
+// ============================================================ //
+
+function inicializarManiobras() {
+    document.getElementById('fechaManiobra').value = new Date().toISOString().split('T')[0];
+    document.getElementById('horaManiobra').value = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+    cargarHistorialManiobras();
+}
+
+async function guardarManiobra() {
+    const fecha = document.getElementById('fechaManiobra').value;
+    const ubicacion = document.getElementById('ubicacionManiobra').value;
+    const responsable = document.getElementById('responsableManiobra').value;
+    
+    if (!fecha || !ubicacion || !responsable) {
+        alert('❌ Complete todos los campos');
+        return;
+    }
+    
+    const data = {
+        fecha, hora: document.getElementById('horaManiobra').value,
+        ubicacion, responsable,
+        tipo: document.getElementById('tipoManiobra').value,
+        equipo: document.getElementById('equipoManiobra').value,
+        descripcion: document.getElementById('descManiobra').value,
+        resultado: document.getElementById('resultadoManiobra').value,
+        usuario: currentUser.nombre
+    };
+    
+    try {
+        await apiRequest('/maniobras', { method: 'POST', body: JSON.stringify(data) });
+        alert('✅ Registro guardado correctamente');
+        cargarHistorialManiobras();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function cargarHistorialManiobras() {
+    try {
+        const registros = await apiRequest('/maniobras');
+        const tbody = document.getElementById('cuerpoHistorialManiobras');
+        if (!registros || registros.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros</td></tr>';
+            return;
+        }
+        tbody.innerHTML = registros.map(r => `
+            <tr>
+                <td>${r.fecha}</td>
+                <td>${r.ubicacion}</td>
+                <td>${r.tipo || '-'}</td>
+                <td>${r.resultado || '-'}</td>
+                <td>${r.responsable}</td>
+                <td><button class="btn-small" onclick="eliminarRegistro('maniobras', ${r.id})">Eliminar</button></td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+function enviarWhatsAppManiobras() {
+    abrirModalWhatsApp('maniobras', function(registros) {
+        let texto = '*GECG - MANIOBRAS*\n';
+        texto += '━━━━━━━━━━━━━━━━━━\n';
+        registros.forEach(r => {
+            texto += `📅 ${r.fecha}\n📍 ${r.ubicacion}\n👤 Responsable: ${r.responsable || '-'}\n🔧 Tipo: ${r.tipo || '-'}\n📊 Resultado: ${r.resultado || '-'}\n📝 ${r.descripcion || 'Sin descripción'}\n━━━━━━━━━━━━━━━━━━\n`;
+        });
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+    });
+}
+
+// ============================================================ //
+// ==================== EXCEL ==================== //
+// ============================================================ //
+
+async function exportarExcel() {
+    const fechaInicio = document.getElementById('fechaInicioExcel').value;
+    const fechaFin = document.getElementById('fechaFinExcel').value;
+    const modulo = document.getElementById('moduloExcel').value;
+    
+    if (!fechaInicio || !fechaFin) {
+        alert('❌ Seleccione fechas de inicio y fin');
+        return;
+    }
+    
+    try {
+        const reporte = await apiRequest('/reporte/exportar?fecha_inicio=' + fechaInicio + '&fecha_fin=' + fechaFin);
+        const wb = XLSX.utils.book_new();
+        
+        function formatearRegistros(registros, columnas) {
+            return registros.map(r => {
+                const fila = {};
+                columnas.forEach(col => {
+                    fila[col] = r[col] !== undefined && r[col] !== null ? r[col] : '';
+                });
+                return fila;
+            });
+        }
+        
+        // ===== EMBALSES =====
+        if (modulo === 'todos' || modulo === 'embalses') {
+            if (reporte.embalses && reporte.embalses.length > 0) {
+                const columnas = ['id', 'fecha', 'embalse', 'operador_entrante', 'operador_saliente', 
+                    'cota_embalse', 'cota_parada', 'cota_arranque', 'diferencia', 'estado', 'observaciones', 'usuario', 'created_at'];
+                const datos = formatearRegistros(reporte.embalses, columnas);
+                const ws = XLSX.utils.json_to_sheet(datos);
+                XLSX.utils.book_append_sheet(wb, ws, "Embalses");
+            }
+        }
+        
+        // ===== PLANTAS =====
+        if (modulo === 'todos' || modulo === 'plantas') {
+            if (reporte.plantas && reporte.plantas.length > 0) {
+                const columnas = ['id', 'fecha', 'planta', 'operador_entrante', 'operador_saliente', 
+                    'turbiedad', 'color', 'cloro_residual', 'ph', 'produccion', 'usuario', 'created_at'];
+                const datos = formatearRegistros(reporte.plantas, columnas);
+                const ws = XLSX.utils.json_to_sheet(datos);
+                XLSX.utils.book_append_sheet(wb, ws, "Plantas");
+            }
+        }
+        
+        // ===== ESTACIONES =====
+        if (modulo === 'todos' || modulo === 'estaciones') {
+            if (reporte.estaciones && reporte.estaciones.length > 0) {
+                const datos = reporte.estaciones.map(function(r) {
+                    let gruposNombres = '';
+                    try {
+                        if (r.grupos) {
+                            const grupos = typeof r.grupos === 'string' ? JSON.parse(r.grupos) : r.grupos;
+                            if (Array.isArray(grupos)) {
+                                gruposNombres = grupos.filter(function(g) { return g.seleccionado; }).map(function(g) { return g.nombre; }).join(', ');
+                            }
+                        }
+                    } catch(e) {
+                        gruposNombres = '';
+                    }
+                    
+                    return {
+                        id: r.id || '',
+                        fecha: r.fecha || '',
+                        estacion: r.estacion || '',
+                        operador_entrante: r.operador_entrante || '',
+                        operador_saliente: r.operador_saliente || '',
+                        tension: r.tension || '',
+                        succion: r.succion || '',
+                        potencia: r.potencia || '',
+                        descarga: r.Descarga || '',
+                        grupos: gruposNombres,
+                        usuario: r.usuario || '',
+                        created_at: r.created_at || ''
+                    };
+                });
+                
+                const ws = XLSX.utils.json_to_sheet(datos);
+                XLSX.utils.book_append_sheet(wb, ws, "Estaciones");
+            }
+        }
+        
+        // ===== DIQUES =====
+        if (modulo === 'todos' || modulo === 'diques') {
+            if (reporte.diques && reporte.diques.length > 0) {
+                const columnas = ['id', 'fecha', 'hora', 'dique', 'operador_entrante', 'operador_saliente', 
+                    'cota', 'caudal', 'ph', 'turbiedad', 'situacion', 'detalle', 'usuario', 'created_at'];
+                const datos = formatearRegistros(reporte.diques, columnas);
+                const ws = XLSX.utils.json_to_sheet(datos);
+                XLSX.utils.book_append_sheet(wb, ws, "Diques");
+            }
+        }
+        
+        // ===== MANIOBRAS =====
+        if (modulo === 'todos' || modulo === 'maniobras') {
+            if (reporte.maniobras && reporte.maniobras.length > 0) {
+                const columnas = ['id', 'fecha', 'hora', 'ubicacion', 'responsable', 
+                    'tipo', 'equipo', 'descripcion', 'resultado', 'usuario', 'created_at'];
+                const datos = formatearRegistros(reporte.maniobras, columnas);
+                const ws = XLSX.utils.json_to_sheet(datos);
+                XLSX.utils.book_append_sheet(wb, ws, "Maniobras");
+            }
+        }
+        
+        // ===== PRESIONES =====
+        if (modulo === 'todos' || modulo === 'presiones') {
+            if (reporte.presiones && reporte.presiones.length > 0) {
+                const datos = [];
+                reporte.presiones.forEach(function(r) {
+                    try {
+                        let presiones = r.presiones;
+                        if (typeof presiones === 'string') {
+                            try {
+                                presiones = JSON.parse(presiones);
+                            } catch(e) {
+                                presiones = [];
+                            }
+                        }
+                        if (Array.isArray(presiones) && presiones.length > 0) {
+                            presiones.forEach(function(p) {
+                                datos.push({
+                                    fecha: r.fecha || '',
+                                    operador_entrante: r.operador_entrante || '',
+                                    operador_saliente: r.operador_saliente || '',
+                                    hora: p.hora || '',
+                                    entrada: p.entrada || '',
+                                    salida: p.salida || '',
+                                    usuario: r.usuario || ''
+                                });
+                            });
+                        } else {
+                            datos.push({
+                                fecha: r.fecha || '',
+                                operador_entrante: r.operador_entrante || '',
+                                operador_saliente: r.operador_saliente || '',
+                                hora: '',
+                                entrada: '',
+                                salida: '',
+                                usuario: r.usuario || ''
+                            });
+                        }
+                    } catch (e) {
+                        datos.push({
+                            fecha: r.fecha || '',
+                            operador_entrante: r.operador_entrante || '',
+                            operador_saliente: r.operador_saliente || '',
+                            hora: '',
+                            entrada: '',
+                            salida: '',
+                            usuario: r.usuario || ''
+                        });
+                    }
+                });
+                if (datos.length > 0) {
+                    const ws = XLSX.utils.json_to_sheet(datos);
+                    XLSX.utils.book_append_sheet(wb, ws, "Dispositivo");
+                }
+            }
+        }
+        
+        if (wb.SheetNames.length === 0) {
+            alert('❌ No hay datos en el período seleccionado');
+            return;
+        }
+        
+        const fecha = new Date().toISOString().split('T')[0];
+        XLSX.writeFile(wb, 'GECG_Reporte_' + fecha + '.xlsx');
+        alert('✅ Reporte exportado correctamente');
+        
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+// ============================================================ //
+// ==================== USUARIOS ==================== //
+// ============================================================ //
+
+async function cargarListaUsuarios() {
+    try {
+        const usuarios = await apiRequest('/usuarios');
+        const tbody = document.getElementById('tablaUsuarios');
+        if (!usuarios || usuarios.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay usuarios</td></tr>';
+            return;
+        }
+        tbody.innerHTML = usuarios.map(u => `
+            <tr>
+                <td>${u.id}</td>
+                <td>${u.username}</td>
+                <td>${u.nombre_completo}</td>
+                <td>${u.rol}</td>
+                <td><button class="btn-small" onclick="eliminarUsuario(${u.id})">Eliminar</button></td>
+            </tr>
+        `).join('');
+    } catch (error) {
+        console.error('Error:', error);
+    }
+}
+
+function abrirModalUsuario() {
+    document.getElementById('editUserId').value = '';
+    document.getElementById('userUsername').value = '';
+    document.getElementById('userNombre').value = '';
+    document.getElementById('userPassword').value = '';
+    document.getElementById('userRol').value = 'Operador';
+    document.getElementById('modalUsuarioTitulo').textContent = 'Nuevo Usuario';
+    document.getElementById('modalUsuario').style.display = 'flex';
+}
+
+function cerrarModalUsuario() {
+    document.getElementById('modalUsuario').style.display = 'none';
+}
+
+async function guardarUsuario() {
+    const data = {
+        username: document.getElementById('userUsername').value,
+        password: document.getElementById('userPassword').value,
+        nombre_completo: document.getElementById('userNombre').value,
+        rol: document.getElementById('userRol').value
+    };
+    if (!data.username || !data.password || !data.nombre_completo) {
+        alert('❌ Complete todos los campos');
+        return;
+    }
+    try {
+        await apiRequest('/usuarios', { method: 'POST', body: JSON.stringify(data) });
+        alert('✅ Usuario creado');
+        cerrarModalUsuario();
+        cargarListaUsuarios();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function eliminarUsuario(id) {
+    if (confirm('¿Eliminar usuario?')) {
+        try {
+            await apiRequest('/usuarios/' + id, { method: 'DELETE' });
+            cargarListaUsuarios();
+        } catch (error) {
+            alert('❌ Error: ' + error.message);
+        }
+    }
+}
+
+// ============================================================ //
+// ==================== RESPALDOS ==================== //
+// ============================================================ //
+
+async function crearRespaldo() {
+    try {
+        const response = await fetch(API_URL + '/respaldos', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.text();
+            throw new Error(error || 'Error al crear respaldo');
+        }
+
+        const result = await response.json();
+        alert('✅ ' + (result.message || 'Respaldo creado'));
+        cargarRespaldos();
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function cargarRespaldos() {
+    try {
+        const response = await fetch(API_URL + '/respaldos', {
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al cargar respaldos');
+        }
+
+        const respaldos = await response.json();
+        const container = document.getElementById('listaRespaldos');
+        
+        if (!respaldos || respaldos.length === 0) {
+            container.innerHTML = '<p class="text-muted">No hay respaldos</p>';
+            return;
+        }
+
+        let html = `<table class="historial-table">
+            <thead><tr><th>Fecha</th><th>Archivo</th></tr></thead>
+            <tbody>`;
+        respaldos.forEach(function(r) {
+            html += `<tr><td>${r.fecha}</td><td>${r.nombre}</td></tr>`;
+        });
+        html += `</tbody></table>`;
+        container.innerHTML = html;
+
+    } catch (error) {
+        document.getElementById('listaRespaldos').innerHTML = '<p class="text-danger">Error: ' + error.message + '</p>';
+    }
+}
+
+// ============================================================ //
+// ==================== INICIAR ==================== //
+// ============================================================ //
+
+const storedUser = localStorage.getItem('gecg_user');
+if (storedUser) {
+    try {
+        currentUser = JSON.parse(storedUser);
+        mostrarDashboard();
+    } catch (error) {
+        localStorage.removeItem('gecg_user');
+    }
+}
+</script>
+</body>
+</html>
