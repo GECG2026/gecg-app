@@ -19,79 +19,16 @@ console.log('📁 Ruta del frontend:', frontendPath);
 app.use(express.static(frontendPath));
 
 // ==================== BASE DE DATOS ====================
-const isProduction = process.env.NODE_ENV === 'production';
-let db;
+const sqlite3 = require('sqlite3').verbose();
 
-if (isProduction) {
-    // En producción usar PostgreSQL
-    const { Pool } = require('pg');
-    const pool = new Pool({
-        connectionString: process.env.DATABASE_URL,
-        ssl: { rejectUnauthorized: false }
-    });
-
-    // Adaptador para mantener compatibilidad con SQLite
-    db = {
-        serialize: function(callback) {
-            callback();
-        },
-        run: function(sql, params, callback) {
-            // Convertir ? a $1, $2, ...
-            let index = 0;
-            const postgresSql = sql.replace(/\?/g, function() {
-                index++;
-                return '$' + index;
-            });
-            
-            pool.query(postgresSql, params, function(err, result) {
-                if (err) {
-                    if (callback) callback(err);
-                    return;
-                }
-                if (callback) callback(null, { lastID: result.rows?.[0]?.id || 0, changes: result.rowCount || 0 });
-            });
-        },
-        get: function(sql, params, callback) {
-            let index = 0;
-            const postgresSql = sql.replace(/\?/g, function() {
-                index++;
-                return '$' + index;
-            });
-            
-            pool.query(postgresSql, params, function(err, result) {
-                if (err) {
-                    if (callback) callback(err);
-                    return;
-                }
-                if (callback) callback(null, result.rows?.[0] || null);
-            });
-        },
-        all: function(sql, params, callback) {
-            let index = 0;
-            const postgresSql = sql.replace(/\?/g, function() {
-                index++;
-                return '$' + index;
-            });
-            
-            pool.query(postgresSql, params, function(err, result) {
-                if (err) {
-                    if (callback) callback(err);
-                    return;
-                }
-                if (callback) callback(null, result.rows || []);
-            });
-        }
-    };
-    
-    console.log('✅ Conectado a PostgreSQL');
-} else {
-    // En desarrollo usar SQLite
-    const sqlite3 = require('sqlite3').verbose();
-    db = new sqlite3.Database('./database.sqlite', (err) => {
-        if (err) console.error('Error:', err.message);
-        else console.log('✅ Conectado a SQLite');
-    });
-}
+// Usar SQLite siempre (en desarrollo y producción)
+const db = new sqlite3.Database('./database.sqlite', (err) => {
+    if (err) {
+        console.error('❌ Error al conectar a SQLite:', err.message);
+    } else {
+        console.log('✅ Conectado a SQLite');
+    }
+});
 
 // ==================== CREAR TABLAS ====================
 db.serialize(() => {
