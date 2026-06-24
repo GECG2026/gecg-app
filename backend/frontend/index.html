@@ -248,8 +248,8 @@
                 <div class="menu-item" data-panel="estaciones"><i class="fas fa-industry"></i><span>Estaciones</span></div>
                 <div class="menu-item" data-panel="diques"><i class="fas fa-dam"></i><span>Diques</span></div>
                 <div class="menu-item" data-panel="embalses"><i class="fas fa-water"></i><span>Embalses</span></div>
-                <div class="menu-item" data-panel="maniobras"><i class="fas fa-tasks"></i><span>Maniobras</span></div>
                 <div class="menu-item" data-panel="graficos"><i class="fas fa-chart-line"></i><span>Gráficos</span></div>
+                <div class="menu-item" data-panel="maniobras"><i class="fas fa-tasks"></i><span>Maniobras</span></div>
                 <div class="menu-item" data-panel="excel"><i class="fas fa-file-excel"></i><span>Excel</span></div>
                 <div class="menu-item" data-panel="admin"><i class="fas fa-user-shield"></i><span>Administración</span></div>
             </div>
@@ -557,6 +557,8 @@
                 <div class="stats-card">
                     <h4><i class="fas fa-user-shield"></i> Administración</h4>
                     <hr>
+                    
+                    <!-- USUARIOS -->
                     <h5>👥 Usuarios</h5>
                     <button class="btn btn-success mb-2" onclick="abrirModalUsuario()"><i class="fas fa-plus"></i> Nuevo Usuario</button>
                     <div class="table-responsive">
@@ -566,6 +568,48 @@
                         </table>
                     </div>
                     <hr>
+                    
+                    <!-- CONFIGURACIÓN DE LISTAS -->
+                    <h5><i class="fas fa-edit"></i> Configuración de Listas Desplegables</h5>
+                    <p class="text-muted">Modifica los valores que aparecen en las listas desplegables de todos los módulos.</p>
+                    
+                    <div id="configuracionContainer" style="margin-top: 15px;">
+                        <div class="form-grid">
+                            <div>
+                                <label><strong>🏞️ Embalses</strong></label>
+                                <div id="listaEmbalses" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('embalses')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>👤 Operadores</strong></label>
+                                <div id="listaOperadores" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('operadores')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>🏞️ Diques</strong></label>
+                                <div id="listaDiques" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('diques')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>🏭 Estaciones</strong></label>
+                                <div id="listaEstaciones" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('estaciones')">+ Agregar</button>
+                            </div>
+                            <div>
+                                <label><strong>🏭 Plantas</strong></label>
+                                <div id="listaPlantas" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
+                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('plantas')">+ Agregar</button>
+                            </div>
+                        </div>
+                        <div class="acciones mt-2">
+                            <button class="btn btn-success" onclick="guardarConfiguracion()"><i class="fas fa-save"></i> Guardar Configuración</button>
+                            <button class="btn btn-warning" onclick="cargarConfiguracionAdmin()"><i class="fas fa-sync"></i> Recargar</button>
+                        </div>
+                        <div id="configuracionMensaje" class="mt-2" style="display: none;"></div>
+                    </div>
+                    <hr>
+                    
+                    <!-- RESPALDOS -->
                     <h5><i class="fas fa-database"></i> Respaldos de Datos</h5>
                     <div class="acciones-left">
                         <button class="btn btn-warning" onclick="crearRespaldo()"><i class="fas fa-save"></i> Crear Respaldo</button>
@@ -711,8 +755,8 @@ function mostrarDashboard() {
     inicializarEstaciones();
     inicializarDiques();
     inicializarEmbalses();
-    inicializarManiobras();
     inicializarGraficos();
+    inicializarManiobras();
     cargarListaUsuarios();
     if (admin) cargarConfiguracionAdmin();
 }
@@ -1637,24 +1681,53 @@ async function guardarEstacion() {
 
 async function cargarHistorialEstaciones() {
     try {
+        console.log('📋 Cargando historial de Estaciones...');
         const registros = await apiRequest('/estaciones');
+        console.log('📋 Registros recibidos:', registros);
+        
         const tbody = document.getElementById('cuerpoHistorialEstaciones');
+        if (!tbody) {
+            console.error('❌ No se encontró el elemento cuerpoHistorialEstaciones');
+            return;
+        }
+        
         if (!registros || registros.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros</td></tr>';
             return;
         }
-        tbody.innerHTML = registros.map(r => `
-            <tr>
-                <td>${r.fecha}</td>
-                <td>${r.estacion}</td>
-                <td>${r.grupos ? r.grupos.map(g => g.nombre).join(', ') : '-'}</td>
-                <td>${r.operador_entrante || '-'}</td>
-                <td>${r.operador_saliente || '-'}</td>
-                <td><button class="btn-small" onclick="eliminarRegistro('estaciones', ${r.id})">Eliminar</button></td>
-            </tr>
-        `).join('');
+        
+        tbody.innerHTML = registros.map(function(r) {
+            // Obtener nombres de grupos
+            let gruposNombres = '';
+            try {
+                if (r.grupos) {
+                    const grupos = typeof r.grupos === 'string' ? JSON.parse(r.grupos) : r.grupos;
+                    if (Array.isArray(grupos)) {
+                        gruposNombres = grupos.filter(function(g) { return g.seleccionado; }).map(function(g) { return g.nombre; }).join(', ');
+                    }
+                }
+            } catch(e) {
+                gruposNombres = '';
+            }
+            
+            return '<tr>' +
+                '<td>' + (r.fecha || '-') + '</td>' +
+                '<td>' + (r.estacion || '-') + '</td>' +
+                '<td>' + (gruposNombres || '-') + '</td>' +
+                '<td>' + (r.operador_entrante || '-') + '</td>' +
+                '<td>' + (r.operador_saliente || '-') + '</td>' +
+                '<td><button class="btn-small" onclick="eliminarRegistro(\'estaciones\', ' + r.id + ')">Eliminar</button></td>' +
+                '</tr>';
+        }).join('');
+        
+        console.log('✅ Historial de Estaciones actualizado');
+        
     } catch (error) {
-        console.error('Error:', error);
+        console.error('❌ Error al cargar historial de Estaciones:', error);
+        const tbody = document.getElementById('cuerpoHistorialEstaciones');
+        if (tbody) {
+            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar registros</td></tr>';
+        }
     }
 }
 
