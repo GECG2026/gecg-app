@@ -18,7 +18,7 @@ const frontendPath = path.join(__dirname, 'frontend');
 console.log('📁 Ruta del frontend:', frontendPath);
 app.use(express.static(frontendPath));
 
-// ==================== BASE DE DATOS ====================
+// ========== BASE DE DATOS ==========
 const sqlite3 = require('sqlite3').verbose();
 
 // Usar SQLite siempre (en desarrollo y producción)
