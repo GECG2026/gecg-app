@@ -7,6 +7,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -187,6 +188,8 @@
         .config-item input { flex: 1; }
         .config-item .btn { padding: 2px 8px; font-size: 12px; }
         
+        .chart-container { position: relative; height: 400px; margin-top: 20px; }
+        
         @media (max-width: 768px) {
             .sidebar { margin-left: -280px; transition: margin 0.3s; }
             .sidebar.active { margin-left: 0; }
@@ -246,6 +249,7 @@
                 <div class="menu-item" data-panel="diques"><i class="fas fa-dam"></i><span>Diques</span></div>
                 <div class="menu-item" data-panel="embalses"><i class="fas fa-water"></i><span>Embalses</span></div>
                 <div class="menu-item" data-panel="maniobras"><i class="fas fa-tasks"></i><span>Maniobras</span></div>
+                <div class="menu-item" data-panel="graficos"><i class="fas fa-chart-line"></i><span>Gráficos</span></div>
                 <div class="menu-item" data-panel="excel"><i class="fas fa-file-excel"></i><span>Excel</span></div>
                 <div class="menu-item" data-panel="admin"><i class="fas fa-user-shield"></i><span>Administración</span></div>
             </div>
@@ -282,25 +286,13 @@
                         <button class="btn btn-success" onclick="guardarDispositivo()"><i class="fas fa-save"></i> Guardar</button>
                     </div>
                 </div>
-                
-                <!-- HISTORIAL PRESIONES -->
                 <div class="stats-card">
                     <h4><i class="fas fa-history"></i> Historial de Presiones</h4>
                     <hr>
                     <div class="table-responsive">
                         <table class="historial-table">
-                            <thead>
-                                <tr>
-                                    <th>Fecha</th>
-                                    <th>Operador E</th>
-                                    <th>Operador S</th>
-                                    <th>Registros</th>
-                                    <th>Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody id="cuerpoHistorialPresiones">
-                                <tr><td colspan="5" class="text-center">No hay registros</td></tr>
-                            </tbody>
+                            <thead><tr><th>Fecha</th><th>Operador E</th><th>Operador S</th><th>Registros</th><th>Acciones</th></tr></thead>
+                            <tbody id="cuerpoHistorialPresiones"><tr><td colspan="5" class="text-center">No hay registros</td></tr></tbody>
                         </table>
                     </div>
                 </div>
@@ -470,6 +462,36 @@
                 </div>
             </div>
 
+            <!-- ===== PANEL GRÁFICOS ===== -->
+            <div id="panel-graficos" class="content-panel">
+                <div class="stats-card">
+                    <h4><i class="fas fa-chart-line"></i> Gráficos de Embalses - Cotas</h4>
+                    <hr>
+                    <div class="form-grid">
+                        <div>
+                            <label>🏞️ EMBALSE</label>
+                            <select id="graficoEmbalseSelect" class="form-control">
+                                <option value="">Seleccionar...</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>📅 FECHA INICIO</label>
+                            <input type="date" id="graficoFechaInicio" class="form-control">
+                        </div>
+                        <div>
+                            <label>📅 FECHA FIN</label>
+                            <input type="date" id="graficoFechaFin" class="form-control">
+                        </div>
+                    </div>
+                    <div class="acciones">
+                        <button class="btn btn-primary" onclick="cargarGrafico()"><i class="fas fa-chart-bar"></i> Generar Gráfico</button>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="graficoCanvas"></canvas>
+                    </div>
+                </div>
+            </div>
+
             <!-- ===== PANEL MANIOBRAS ===== -->
             <div id="panel-maniobras" class="content-panel">
                 <div class="stats-card">
@@ -544,47 +566,6 @@
                         </table>
                     </div>
                     <hr>
-                    
-                    <!-- CONFIGURACIÓN DE LISTAS -->
-                    <h5><i class="fas fa-edit"></i> Configuración de Listas Desplegables</h5>
-                    <p class="text-muted">Modifica los valores que aparecen en las listas desplegables de todos los módulos.</p>
-                    
-                    <div id="configuracionContainer" style="margin-top: 15px;">
-                        <div class="form-grid">
-                            <div>
-                                <label><strong>🏞️ Embalses</strong></label>
-                                <div id="listaEmbalses" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
-                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('embalses')">+ Agregar</button>
-                            </div>
-                            <div>
-                                <label><strong>👤 Operadores</strong></label>
-                                <div id="listaOperadores" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
-                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('operadores')">+ Agregar</button>
-                            </div>
-                            <div>
-                                <label><strong>🏞️ Diques</strong></label>
-                                <div id="listaDiques" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
-                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('diques')">+ Agregar</button>
-                            </div>
-                            <div>
-                                <label><strong>🏭 Estaciones</strong></label>
-                                <div id="listaEstaciones" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
-                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('estaciones')">+ Agregar</button>
-                            </div>
-                            <div>
-                                <label><strong>🏭 Plantas</strong></label>
-                                <div id="listaPlantas" style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;"></div>
-                                <button class="btn btn-sm btn-primary mt-1" onclick="agregarItemConfig('plantas')">+ Agregar</button>
-                            </div>
-                        </div>
-                        <div class="acciones mt-2">
-                            <button class="btn btn-success" onclick="guardarConfiguracion()"><i class="fas fa-save"></i> Guardar Configuración</button>
-                            <button class="btn btn-warning" onclick="cargarConfiguracionAdmin()"><i class="fas fa-sync"></i> Recargar</button>
-                        </div>
-                        <div id="configuracionMensaje" class="mt-2" style="display: none;"></div>
-                    </div>
-                    <hr>
-                    
                     <h5><i class="fas fa-database"></i> Respaldos de Datos</h5>
                     <div class="acciones-left">
                         <button class="btn btn-warning" onclick="crearRespaldo()"><i class="fas fa-save"></i> Crear Respaldo</button>
@@ -604,14 +585,8 @@
         <h3 id="whatsappModalTitle">📱 Enviar WhatsApp</h3>
         <hr>
         <div class="form-grid">
-            <div>
-                <label>📅 FECHA INICIO</label>
-                <input type="date" id="whatsappFechaInicio">
-            </div>
-            <div>
-                <label>📅 FECHA FIN</label>
-                <input type="date" id="whatsappFechaFin">
-            </div>
+            <div><label>📅 FECHA INICIO</label><input type="date" id="whatsappFechaInicio"></div>
+            <div><label>📅 FECHA FIN</label><input type="date" id="whatsappFechaFin"></div>
         </div>
         <div id="whatsappRegistrosContainer" style="max-height: 300px; overflow-y: auto; margin: 10px 0;"></div>
         <div class="acciones" style="justify-content: space-between; flex-wrap: wrap;">
@@ -737,10 +712,9 @@ function mostrarDashboard() {
     inicializarDiques();
     inicializarEmbalses();
     inicializarManiobras();
+    inicializarGraficos();
     cargarListaUsuarios();
-    if (admin) {
-        cargarConfiguracionAdmin();
-    }
+    if (admin) cargarConfiguracionAdmin();
 }
 
 function logout() {
@@ -770,6 +744,7 @@ document.querySelectorAll('.menu-item').forEach(function(item) {
             estaciones: 'Estaciones de Bombeo',
             diques: 'Diques',
             embalses: 'Embalses',
+            graficos: 'Gráficos',
             maniobras: 'Maniobras',
             excel: 'Reporte Excel',
             admin: 'Administración'
@@ -818,17 +793,10 @@ async function apiRequest(endpoint, options = {}) {
     }
 }
 
-// ============================================================ //
-// ==================== LISTAS DESPLEGABLES ==================== //
-// ============================================================ //
-
+// ==================== LISTAS DESPLEGABLES ====================
 function cargarListasDesplegables() {
-    console.log('🔄 Recargando listas desplegables...');
-    
     fetch(API_URL + '/configuracion', {
-        headers: {
-            'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
-        }
+        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('gecg_token') }
     })
     .then(response => response.json())
     .then(function(config) {
@@ -898,18 +866,13 @@ function cargarListasDesplegables() {
                 todas.map(u => `<option value="${u}">${u}</option>`).join('');
             if (valorActual) ubicacion.value = valorActual;
         }
-        
-        console.log('✅ Listas desplegables actualizadas');
     })
     .catch(function(error) {
-        console.error('❌ Error cargando configuración:', error);
+        console.error('Error cargando configuración:', error);
     });
 }
 
-// ============================================================ //
-// ==================== CONFIGURACIÓN DE LISTAS ==================== //
-// ============================================================ //
-
+// ==================== CONFIGURACIÓN ADMIN ====================
 async function cargarConfiguracionAdmin() {
     try {
         const config = await apiRequest('/configuracion');
@@ -943,7 +906,7 @@ async function cargarConfiguracionAdmin() {
         });
         
     } catch (error) {
-        console.error('Error al cargar configuración:', error);
+        console.error('Error:', error);
     }
 }
 
@@ -1014,7 +977,7 @@ async function guardarConfiguracion() {
         };
         
         const mensajeContainer = document.getElementById('configuracionMensaje');
-        mensajeContainer.style.display = 'none';
+        if (mensajeContainer) mensajeContainer.style.display = 'none';
         
         let todoOk = true;
         let errores = [];
@@ -1045,32 +1008,33 @@ async function guardarConfiguracion() {
             }
         }
         
-        if (todoOk) {
-            mensajeContainer.innerHTML = `<div class="alert alert-success">✅ Configuración guardada correctamente</div>`;
-            mensajeContainer.style.display = 'block';
-            
-            await cargarConfiguracionAdmin();
-            await cargarListasDesplegables();
-            
-            setTimeout(() => {
-                mensajeContainer.style.display = 'none';
-            }, 3000);
-        } else {
-            mensajeContainer.innerHTML = `<div class="alert alert-danger">❌ Error: ${errores.join('; ')}</div>`;
-            mensajeContainer.style.display = 'block';
+        if (mensajeContainer) {
+            if (todoOk) {
+                mensajeContainer.innerHTML = `<div class="alert alert-success">✅ Configuración guardada correctamente</div>`;
+                mensajeContainer.style.display = 'block';
+                
+                await cargarConfiguracionAdmin();
+                await cargarListasDesplegables();
+                
+                setTimeout(() => {
+                    mensajeContainer.style.display = 'none';
+                }, 3000);
+            } else {
+                mensajeContainer.innerHTML = `<div class="alert alert-danger">❌ Error: ${errores.join('; ')}</div>`;
+                mensajeContainer.style.display = 'block';
+            }
         }
         
     } catch (error) {
         const mensajeContainer = document.getElementById('configuracionMensaje');
-        mensajeContainer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
-        mensajeContainer.style.display = 'block';
+        if (mensajeContainer) {
+            mensajeContainer.innerHTML = `<div class="alert alert-danger">Error: ${error.message}</div>`;
+            mensajeContainer.style.display = 'block';
+        }
     }
 }
 
-// ============================================================ //
-// ==================== WHATSAPP MODAL ==================== //
-// ============================================================ //
-
+// ==================== WHATSAPP MODAL ====================
 let whatsappRegistrosActuales = [];
 let whatsappTablaActual = '';
 let whatsappCallback = null;
@@ -1157,9 +1121,6 @@ function seleccionarTodosWhatsApp(seleccionar) {
     if (selectAll) selectAll.checked = seleccionar;
 }
 
-document.getElementById('whatsappFechaInicio')?.addEventListener('change', cargarRegistrosWhatsApp);
-document.getElementById('whatsappFechaFin')?.addEventListener('change', cargarRegistrosWhatsApp);
-
 function enviarWhatsAppSeleccionado() {
     const checkboxes = document.querySelectorAll('.whatsapp-checkbox:checked');
     if (checkboxes.length === 0) {
@@ -1176,10 +1137,7 @@ function enviarWhatsAppSeleccionado() {
     cerrarModalWhatsApp();
 }
 
-// ============================================================ //
-// ==================== ELIMINAR REGISTRO ==================== //
-// ============================================================ //
-
+// ==================== ELIMINAR REGISTRO ====================
 async function eliminarRegistro(tabla, id) {
     if (confirm('¿Eliminar este registro?')) {
         try {
@@ -1199,10 +1157,135 @@ async function eliminarRegistro(tabla, id) {
     }
 }
 
-// ============================================================ //
-// ==================== DISPOSITIVO ==================== //
-// ============================================================ //
+// ==================== GRÁFICOS ====================
+let chartInstance = null;
 
+function inicializarGraficos() {
+    const select = document.getElementById('graficoEmbalseSelect');
+    if (select) {
+        select.innerHTML = '<option value="">Seleccionar...</option>' + 
+            (configuracion.embalses || []).map(e => `<option value="${e}">${e}</option>`).join('');
+    }
+    
+    const hoy = new Date();
+    const hace30Dias = new Date();
+    hace30Dias.setDate(hace30Dias.getDate() - 30);
+    
+    document.getElementById('graficoFechaInicio').value = hace30Dias.toISOString().split('T')[0];
+    document.getElementById('graficoFechaFin').value = hoy.toISOString().split('T')[0];
+}
+
+async function cargarGrafico() {
+    const embalse = document.getElementById('graficoEmbalseSelect').value;
+    const fechaInicio = document.getElementById('graficoFechaInicio').value;
+    const fechaFin = document.getElementById('graficoFechaFin').value;
+    
+    if (!embalse) {
+        alert('❌ Seleccione un embalse');
+        return;
+    }
+    
+    if (!fechaInicio || !fechaFin) {
+        alert('❌ Seleccione fechas de inicio y fin');
+        return;
+    }
+    
+    try {
+        const registros = await apiRequest('/embalses');
+        
+        const filtrados = registros.filter(r => 
+            r.embalse === embalse && 
+            r.fecha >= fechaInicio && 
+            r.fecha <= fechaFin &&
+            r.cota_embalse && r.cota_embalse !== '0'
+        );
+        
+        if (filtrados.length === 0) {
+            alert('❌ No hay datos para el embalse y fechas seleccionados');
+            return;
+        }
+        
+        filtrados.sort((a, b) => a.fecha.localeCompare(b.fecha));
+        
+        const fechas = filtrados.map(r => r.fecha);
+        const cotas = filtrados.map(r => parseFloat(r.cota_embalse));
+        const paradas = filtrados.map(r => parseFloat(r.cota_parada) || 0);
+        const arranques = filtrados.map(r => parseFloat(r.cota_arranque) || 0);
+        
+        const ctx = document.getElementById('graficoCanvas').getContext('2d');
+        
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+        
+        chartInstance = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: fechas,
+                datasets: [
+                    {
+                        label: 'Cota Embalse (m)',
+                        data: cotas,
+                        borderColor: '#1a472a',
+                        backgroundColor: 'rgba(26, 71, 42, 0.1)',
+                        fill: true,
+                        tension: 0.1,
+                        pointRadius: 5,
+                        pointBackgroundColor: '#1a472a'
+                    },
+                    {
+                        label: 'Cota Parada (m)',
+                        data: paradas,
+                        borderColor: '#dc3545',
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.1,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#dc3545'
+                    },
+                    {
+                        label: 'Cota Arranque (m)',
+                        data: arranques,
+                        borderColor: '#ffc107',
+                        borderDash: [5, 5],
+                        fill: false,
+                        tension: 0.1,
+                        pointRadius: 3,
+                        pointBackgroundColor: '#ffc107'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: true,
+                        text: `Evolución de Cotas - ${embalse}`,
+                        font: { size: 16, weight: 'bold' }
+                    },
+                    legend: {
+                        position: 'top'
+                    }
+                },
+                scales: {
+                    y: {
+                        title: { display: true, text: 'Cota (m)' },
+                        beginAtZero: false
+                    },
+                    x: {
+                        title: { display: true, text: 'Fecha' }
+                    }
+                }
+            }
+        });
+        
+    } catch (error) {
+        alert('❌ Error al cargar gráfico: ' + error.message);
+    }
+}
+
+// ==================== DISPOSITIVO ====================
 function inicializarDispositivo() {
     document.getElementById('fechaDispositivo').value = new Date().toISOString().split('T')[0];
     renderizarPresiones();
@@ -1238,43 +1321,31 @@ async function cargarHistorialPresiones() {
         const registros = await apiRequest('/presiones');
         const tbody = document.getElementById('cuerpoHistorialPresiones');
         if (!tbody) return;
-        
         if (!registros || registros.length === 0) {
             tbody.innerHTML = '<tr><td colspan="5" class="text-center">No hay registros</td></tr>';
             return;
         }
-        
         tbody.innerHTML = registros.map(function(r) {
             let totalPresiones = 0;
             try {
                 const presiones = typeof r.presiones === 'string' ? JSON.parse(r.presiones) : r.presiones;
                 if (Array.isArray(presiones)) totalPresiones = presiones.length;
             } catch(e) {}
-            
-            return '<tr>' +
-                '<td>' + (r.fecha || '-') + '</td>' +
-                '<td>' + (r.operador_entrante || '-') + '</td>' +
-                '<td>' + (r.operador_saliente || '-') + '</td>' +
-                '<td>' + totalPresiones + ' horas</td>' +
-                '<td><button class="btn-small" onclick="eliminarRegistro(\'presiones\', ' + r.id + ')">Eliminar</button></td>' +
-                '</tr>';
+            return '<tr><td>' + (r.fecha || '-') + '</td><td>' + (r.operador_entrante || '-') + '</td><td>' + (r.operador_saliente || '-') + '</td><td>' + totalPresiones + ' horas</td><td><button class="btn-small" onclick="eliminarRegistro(\'presiones\', ' + r.id + ')">Eliminar</button></td></tr>';
         }).join('');
-        
     } catch (error) {
-        console.error('Error al cargar historial de presiones:', error);
+        console.error('Error:', error);
     }
 }
 
 function abrirModalWhatsAppDispositivo() {
     const modal = document.getElementById('modalWhatsApp');
     document.getElementById('whatsappModalTitle').textContent = '📱 Enviar WhatsApp - Dispositivo';
-    
     const hoy = new Date().toISOString().split('T')[0];
     document.getElementById('whatsappFechaInicio').value = hoy;
     document.getElementById('whatsappFechaFin').value = hoy;
     
     const container = document.getElementById('whatsappRegistrosContainer');
-    
     let html = `
         <div style="margin: 10px 0;">
             <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 10px;">
@@ -1293,7 +1364,6 @@ function abrirModalWhatsAppDispositivo() {
                     </thead>
                     <tbody>
     `;
-    
     presionesData.forEach((p, idx) => {
         const entrada = document.getElementById(`presionEntrada_${idx}`)?.value || p.entrada || '';
         const salida = document.getElementById(`presionSalida_${idx}`)?.value || p.salida || '';
@@ -1306,14 +1376,7 @@ function abrirModalWhatsAppDispositivo() {
             </tr>
         `;
     });
-    
-    html += `
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    `;
-    
+    html += `</tbody></table></div></div>`;
     container.innerHTML = html;
     
     const modalFooter = modal.querySelector('.acciones');
@@ -1329,7 +1392,6 @@ function abrirModalWhatsAppDispositivo() {
             </div>
         `;
     }
-    
     modal.style.display = 'flex';
 }
 
@@ -1345,9 +1407,7 @@ function enviarWhatsAppPresionesSeleccionadas() {
         alert('❌ Seleccione al menos una hora');
         return;
     }
-    
     const indices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.idx));
-    
     const fecha = document.getElementById('fechaDispositivo').value || 'No definida';
     const opE = document.getElementById('opEntranteDisp').value || '-';
     const opS = document.getElementById('opSalienteDisp').value || '-';
@@ -1357,18 +1417,13 @@ function enviarWhatsAppPresionesSeleccionadas() {
     texto += `👤 Op.E: ${opE}\n`;
     texto += `👥 Op.S: ${opS}\n`;
     texto += '━━━━━━━━━━━━━━━━━━━━━\n\n';
-    
     indices.forEach(idx => {
         const p = presionesData[idx];
         const entrada = document.getElementById(`presionEntrada_${idx}`)?.value || p.entrada || '-';
         const salida = document.getElementById(`presionSalida_${idx}`)?.value || p.salida || '-';
-        texto += `🕐 ${p.hora}\n`;
-        texto += `   📥 Entrada: ${entrada} PSI\n`;
-        texto += `   📤 Salida: ${salida} PSI\n\n`;
+        texto += `🕐 ${p.hora}\n   📥 Entrada: ${entrada} PSI\n   📤 Salida: ${salida} PSI\n\n`;
     });
-    
     texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
-    
     window.open('https://wa.me/?text=' + encodeURIComponent(texto));
     cerrarModalWhatsApp();
 }
@@ -1377,26 +1432,17 @@ async function guardarDispositivo() {
     const fecha = document.getElementById('fechaDispositivo').value;
     const opE = document.getElementById('opEntranteDisp').value;
     const opS = document.getElementById('opSalienteDisp').value;
-    
     if (!fecha || !opE || !opS) {
         alert('❌ Complete todos los campos');
         return;
     }
-    
     document.querySelectorAll('.presion-entrada').forEach(inp => {
         presionesData[parseInt(inp.dataset.idx)].entrada = inp.value || '0';
     });
     document.querySelectorAll('.presion-salida').forEach(inp => {
         presionesData[parseInt(inp.dataset.idx)].salida = inp.value || '0';
     });
-    
-    const data = { 
-        fecha: fecha, 
-        operador_entrante: opE, 
-        operador_saliente: opS, 
-        presiones: presionesData 
-    };
-    
+    const data = { fecha, operador_entrante: opE, operador_saliente: opS, presiones: presionesData };
     try {
         await apiRequest('/presiones', { method: 'POST', body: JSON.stringify(data) });
         alert('✅ Presiones guardadas correctamente');
@@ -1406,10 +1452,7 @@ async function guardarDispositivo() {
     }
 }
 
-// ============================================================ //
-// ==================== PLANTAS ==================== //
-// ============================================================ //
-
+// ==================== PLANTAS ====================
 function inicializarPlantas() {
     document.getElementById('fechaPlanta').value = new Date().toISOString().split('T')[0];
     renderizarTablaQuimicos();
@@ -1457,12 +1500,10 @@ async function guardarPlanta() {
     const planta = document.getElementById('plantaSelect').value;
     const opE = document.getElementById('opEntrantePlanta').value;
     const opS = document.getElementById('opSalientePlanta').value;
-    
     if (!fecha || !planta || !opE || !opS) {
         alert('❌ Complete todos los campos');
         return;
     }
-    
     const data = {
         fecha, planta, operador_entrante: opE, operador_saliente: opS,
         turbiedad: document.getElementById('turbiedadPlanta').value,
@@ -1473,7 +1514,6 @@ async function guardarPlanta() {
         sustancias: sustanciasQuimicas,
         usuario: currentUser.nombre
     };
-    
     try {
         await apiRequest('/plantas', { method: 'POST', body: JSON.stringify(data) });
         alert('✅ Registro guardado correctamente');
@@ -1519,14 +1559,11 @@ function enviarWhatsAppPlantas() {
     });
 }
 
-// ============================================================ //
-// ==================== ESTACIONES ==================== //
-// ============================================================ //
-
+// ==================== ESTACIONES ====================
 function inicializarEstaciones() {
     document.getElementById('fechaEstacion').value = new Date().toISOString().split('T')[0];
     renderizarGruposEstaciones();
-    cargarHistorialEstaciones();  // ← Esta línea debe existir
+    cargarHistorialEstaciones();
 }
 
 function renderizarGruposEstaciones() {
@@ -1579,26 +1616,16 @@ async function guardarEstacion() {
     const estacion = document.getElementById('estacionSelect').value;
     const opE = document.getElementById('opEntranteEst').value;
     const opS = document.getElementById('opSalienteEst').value;
-    
     if (!fecha || !estacion || !opE || !opS) {
         alert('❌ Complete todos los campos');
         return;
     }
-    
     const tension = parseFloat(document.getElementById('tensionEst').value) || 0;
     const succion = parseFloat(document.getElementById('succionEst').value) || 0;
     const potencia = parseFloat(document.getElementById('potenciaEst').value) || 0;
     const descarga = parseFloat(document.getElementById('descargaEst').value) || 0;
-    
     const grupos = gruposData.filter(g => g.seleccionado);
-    
-    const data = {
-        fecha, estacion, operador_entrante: opE, operador_saliente: opS,
-        tension, succion, potencia, descarga,
-        grupos: grupos,
-        usuario: currentUser.nombre
-    };
-    
+    const data = { fecha, estacion, operador_entrante: opE, operador_saliente: opS, tension, succion, potencia, descarga, grupos, usuario: currentUser.nombre };
     try {
         await apiRequest('/estaciones', { method: 'POST', body: JSON.stringify(data) });
         alert('✅ Registro guardado correctamente');
@@ -1610,96 +1637,40 @@ async function guardarEstacion() {
 
 async function cargarHistorialEstaciones() {
     try {
-        console.log('📋 Cargando historial de Estaciones...');
         const registros = await apiRequest('/estaciones');
-        console.log('📋 Registros recibidos:', registros);
-        
         const tbody = document.getElementById('cuerpoHistorialEstaciones');
-        if (!tbody) {
-            console.error('❌ No se encontró el elemento cuerpoHistorialEstaciones');
-            return;
-        }
-        
         if (!registros || registros.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros</td></tr>';
             return;
         }
-        
-        tbody.innerHTML = registros.map(function(r) {
-            // Obtener nombres de grupos
-            let gruposNombres = '';
-            try {
-                if (r.grupos) {
-                    const grupos = typeof r.grupos === 'string' ? JSON.parse(r.grupos) : r.grupos;
-                    if (Array.isArray(grupos)) {
-                        gruposNombres = grupos.filter(function(g) { return g.seleccionado; }).map(function(g) { return g.nombre; }).join(', ');
-                    }
-                }
-            } catch(e) {
-                gruposNombres = '';
-            }
-            
-            return '<tr>' +
-                '<td>' + (r.fecha || '-') + '</td>' +
-                '<td>' + (r.estacion || '-') + '</td>' +
-                '<td>' + (gruposNombres || '-') + '</td>' +
-                '<td>' + (r.operador_entrante || '-') + '</td>' +
-                '<td>' + (r.operador_saliente || '-') + '</td>' +
-                '<td><button class="btn-small" onclick="eliminarRegistro(\'estaciones\', ' + r.id + ')">Eliminar</button></td>' +
-                '</tr>';
-        }).join('');
-        
-        console.log('✅ Historial de Estaciones actualizado');
-        
+        tbody.innerHTML = registros.map(r => `
+            <tr>
+                <td>${r.fecha}</td>
+                <td>${r.estacion}</td>
+                <td>${r.grupos ? r.grupos.map(g => g.nombre).join(', ') : '-'}</td>
+                <td>${r.operador_entrante || '-'}</td>
+                <td>${r.operador_saliente || '-'}</td>
+                <td><button class="btn-small" onclick="eliminarRegistro('estaciones', ${r.id})">Eliminar</button></td>
+            </tr>
+        `).join('');
     } catch (error) {
-        console.error('❌ Error al cargar historial de Estaciones:', error);
-        const tbody = document.getElementById('cuerpoHistorialEstaciones');
-        if (tbody) {
-            tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar registros</td></tr>';
-        }
+        console.error('Error:', error);
     }
 }
+
 function enviarWhatsAppEstaciones() {
-    const fecha = document.getElementById('fechaEstacion').value || 'No definida';
-    const estacion = document.getElementById('estacionSelect').value || 'No definida';
-    const opE = document.getElementById('opEntranteEst').value || '-';
-    const opS = document.getElementById('opSalienteEst').value || '-';
-    const tension = document.getElementById('tensionEst').value || '-';
-    const succion = document.getElementById('succionEst').value || '-';
-    const potencia = document.getElementById('potenciaEst').value || '-';
-    const descarga = document.getElementById('descargaEst').value || '-';
-    
-    const gruposSeleccionados = gruposData.filter(g => g.seleccionado);
-    let gruposTexto = 'Ninguno seleccionado';
-    if (gruposSeleccionados.length > 0) {
-        gruposTexto = gruposSeleccionados.map(g => 
-            g.nombre + ' (' + g.condicion + ')' + (g.potencia ? ' - ' + g.potencia + 'KW' : '')
-        ).join('\n   ');
-    }
-    
-    const texto = '*GECG - ESTACIONES DE BOMBEO*\n' +
-        '📅 Fecha: ' + fecha + '\n' +
-        '🏭 Estación: ' + estacion + '\n' +
-        '👤 Op.E: ' + opE + '\n' +
-        '👥 Op.S: ' + opS + '\n' +
-        '━━━━━━━━━━━━━━━━━━━━━\n' +
-        '⚡ Tensión: ' + tension + ' KV\n' +
-        '💧 Succión: ' + succion + ' m\n' +
-        '⚙️ Potencia: ' + potencia + ' KW\n' +
-        '📈 Descarga: ' + descarga + ' mca\n' +
-        '━━━━━━━━━━━━━━━━━━━━━\n' +
-        '🔧 GRUPOS OPERATIVOS:\n' +
-        '   ' + gruposTexto + '\n' +
-        '━━━━━━━━━━━━━━━━━━━━━\n' +
-        '👤 Generado por: ' + (currentUser ? currentUser.nombre : 'Usuario');
-    
-    window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+    abrirModalWhatsApp('estaciones', function(registros) {
+        let texto = '*GECG - ESTACIONES DE BOMBEO*\n';
+        texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+        registros.forEach(r => {
+            const grupos = r.grupos ? r.grupos.filter(g => g.seleccionado).map(g => g.nombre).join(', ') : '-';
+            texto += `📅 ${r.fecha}\n🏭 ${r.estacion}\n👤 Op.E: ${r.operador_entrante || '-'}\n👥 Op.S: ${r.operador_saliente || '-'}\n⚡ Tensión: ${r.tension || '-'} KV\n💧 Succión: ${r.succion || '-'} m\n⚙️ Potencia: ${r.potencia || '-'} KW\n📈 Descarga: ${r.descarga || '-'} mca\n🔧 Grupos: ${grupos}\n━━━━━━━━━━━━━━━━━━━━━\n`;
+        });
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+    });
 }
 
-// ============================================================ //
-// ==================== DIQUES ==================== //
-// ============================================================ //
-
+// ==================== DIQUES ====================
 function inicializarDiques() {
     document.getElementById('fechaDique').value = new Date().toISOString().split('T')[0];
     document.getElementById('horaDique').value = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -1712,12 +1683,10 @@ async function guardarDique() {
     const opE = document.getElementById('opEntranteDique').value;
     const opS = document.getElementById('opSalienteDique').value;
     const situacion = document.querySelector('input[name="situacionDique"]:checked');
-    
     if (!fecha || !dique || !opE || !opS) {
         alert('❌ Complete todos los campos');
         return;
     }
-    
     const data = {
         fecha, hora: document.getElementById('horaDique').value,
         dique, operador_entrante: opE, operador_saliente: opS,
@@ -1729,7 +1698,6 @@ async function guardarDique() {
         detalle: document.getElementById('detalleDique').value,
         usuario: currentUser.nombre
     };
-    
     try {
         await apiRequest('/diques', { method: 'POST', body: JSON.stringify(data) });
         alert('✅ Registro guardado correctamente');
@@ -1773,10 +1741,7 @@ function enviarWhatsAppDiques() {
     });
 }
 
-// ============================================================ //
-// ==================== EMBALSES ==================== //
-// ============================================================ //
-
+// ==================== EMBALSES ====================
 function inicializarEmbalses() {
     document.getElementById('fechaEmbalse').value = new Date().toISOString().split('T')[0];
     cargarHistorialEmbalses();
@@ -1788,7 +1753,6 @@ function calcularEstado() {
     const cotaArranque = parseFloat(document.getElementById('cotaArranque').value) || 0;
     const diferencia = cotaArranque - cotaParada;
     document.getElementById('diferenciaCotas').value = diferencia.toFixed(2) + ' m';
-    
     let estadoHtml = '', estadoClass = '';
     if (cotaEmbalse >= cotaArranque && cotaArranque > 0) {
         estadoClass = 'estado-operativo';
@@ -1812,23 +1776,19 @@ async function guardarEmbalse() {
     const embalse = document.getElementById('embalseSelect').value;
     const opE = document.getElementById('operadorEntranteEmbalse').value;
     const opS = document.getElementById('operadorSalienteEmbalse').value;
-    
     if (!fecha || !embalse || !opE || !opS) {
         alert('❌ Complete todos los campos');
         return;
     }
-    
     const ce = parseFloat(document.getElementById('cotaEmbalse').value) || 0;
     const ca = parseFloat(document.getElementById('cotaArranque').value) || 0;
     const cp = parseFloat(document.getElementById('cotaParada').value) || 0;
     const diferencia = ca - cp;
-    
     let estado = '';
     if (ce >= ca && ca > 0) estado = 'OPERATIVO';
     else if (ce <= cp && cp > 0) estado = 'EN PARADA';
     else if (ce > cp && ce < ca && ca > 0) estado = 'TRANSICIÓN';
     else estado = 'SIN DATOS';
-    
     const data = {
         fecha, embalse, operador_entrante: opE, operador_saliente: opS,
         cota_embalse: document.getElementById('cotaEmbalse').value || '0',
@@ -1839,7 +1799,6 @@ async function guardarEmbalse() {
         observaciones: document.getElementById('obsEmbalse').value || '',
         usuario: currentUser.nombre
     };
-    
     try {
         await apiRequest('/embalses', { method: 'POST', body: JSON.stringify(data) });
         alert('✅ Registro guardado correctamente');
@@ -1913,10 +1872,7 @@ function enviarWhatsAppEmbalse() {
     });
 }
 
-// ============================================================ //
-// ==================== MANIOBRAS ==================== //
-// ============================================================ //
-
+// ==================== MANIOBRAS ====================
 function inicializarManiobras() {
     document.getElementById('fechaManiobra').value = new Date().toISOString().split('T')[0];
     document.getElementById('horaManiobra').value = new Date().toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -1927,12 +1883,10 @@ async function guardarManiobra() {
     const fecha = document.getElementById('fechaManiobra').value;
     const ubicacion = document.getElementById('ubicacionManiobra').value;
     const responsable = document.getElementById('responsableManiobra').value;
-    
     if (!fecha || !ubicacion || !responsable) {
         alert('❌ Complete todos los campos');
         return;
     }
-    
     const data = {
         fecha, hora: document.getElementById('horaManiobra').value,
         ubicacion, responsable,
@@ -1942,7 +1896,6 @@ async function guardarManiobra() {
         resultado: document.getElementById('resultadoManiobra').value,
         usuario: currentUser.nombre
     };
-    
     try {
         await apiRequest('/maniobras', { method: 'POST', body: JSON.stringify(data) });
         alert('✅ Registro guardado correctamente');
@@ -1986,20 +1939,15 @@ function enviarWhatsAppManiobras() {
     });
 }
 
-// ============================================================ //
-// ==================== EXCEL ==================== //
-// ============================================================ //
-
+// ==================== EXCEL ====================
 async function exportarExcel() {
     const fechaInicio = document.getElementById('fechaInicioExcel').value;
     const fechaFin = document.getElementById('fechaFinExcel').value;
     const modulo = document.getElementById('moduloExcel').value;
-    
     if (!fechaInicio || !fechaFin) {
         alert('❌ Seleccione fechas de inicio y fin');
         return;
     }
-    
     try {
         const reporte = await apiRequest('/reporte/exportar?fecha_inicio=' + fechaInicio + '&fecha_fin=' + fechaFin);
         const wb = XLSX.utils.book_new();
@@ -2014,7 +1962,6 @@ async function exportarExcel() {
             });
         }
         
-        // ===== EMBALSES =====
         if (modulo === 'todos' || modulo === 'embalses') {
             if (reporte.embalses && reporte.embalses.length > 0) {
                 const columnas = ['id', 'fecha', 'embalse', 'operador_entrante', 'operador_saliente', 
@@ -2024,8 +1971,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Embalses");
             }
         }
-        
-        // ===== PLANTAS =====
         if (modulo === 'todos' || modulo === 'plantas') {
             if (reporte.plantas && reporte.plantas.length > 0) {
                 const columnas = ['id', 'fecha', 'planta', 'operador_entrante', 'operador_saliente', 
@@ -2035,8 +1980,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Plantas");
             }
         }
-        
-        // ===== ESTACIONES =====
         if (modulo === 'todos' || modulo === 'estaciones') {
             if (reporte.estaciones && reporte.estaciones.length > 0) {
                 const datos = reporte.estaciones.map(function(r) {
@@ -2048,32 +1991,19 @@ async function exportarExcel() {
                                 gruposNombres = grupos.filter(function(g) { return g.seleccionado; }).map(function(g) { return g.nombre; }).join(', ');
                             }
                         }
-                    } catch(e) {
-                        gruposNombres = '';
-                    }
-                    
+                    } catch(e) { gruposNombres = ''; }
                     return {
-                        id: r.id || '',
-                        fecha: r.fecha || '',
-                        estacion: r.estacion || '',
-                        operador_entrante: r.operador_entrante || '',
-                        operador_saliente: r.operador_saliente || '',
-                        tension: r.tension || '',
-                        succion: r.succion || '',
-                        potencia: r.potencia || '',
-                        descarga: r.Descarga || '',
-                        grupos: gruposNombres,
-                        usuario: r.usuario || '',
-                        created_at: r.created_at || ''
+                        id: r.id || '', fecha: r.fecha || '', estacion: r.estacion || '',
+                        operador_entrante: r.operador_entrante || '', operador_saliente: r.operador_saliente || '',
+                        tension: r.tension || '', succion: r.succion || '', potencia: r.potencia || '',
+                        descarga: r.Descarga || '', grupos: gruposNombres,
+                        usuario: r.usuario || '', created_at: r.created_at || ''
                     };
                 });
-                
                 const ws = XLSX.utils.json_to_sheet(datos);
                 XLSX.utils.book_append_sheet(wb, ws, "Estaciones");
             }
         }
-        
-        // ===== DIQUES =====
         if (modulo === 'todos' || modulo === 'diques') {
             if (reporte.diques && reporte.diques.length > 0) {
                 const columnas = ['id', 'fecha', 'hora', 'dique', 'operador_entrante', 'operador_saliente', 
@@ -2083,8 +2013,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Diques");
             }
         }
-        
-        // ===== MANIOBRAS =====
         if (modulo === 'todos' || modulo === 'maniobras') {
             if (reporte.maniobras && reporte.maniobras.length > 0) {
                 const columnas = ['id', 'fecha', 'hora', 'ubicacion', 'responsable', 
@@ -2094,8 +2022,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Maniobras");
             }
         }
-        
-        // ===== PRESIONES =====
         if (modulo === 'todos' || modulo === 'presiones') {
             if (reporte.presiones && reporte.presiones.length > 0) {
                 const datos = [];
@@ -2103,11 +2029,7 @@ async function exportarExcel() {
                     try {
                         let presiones = r.presiones;
                         if (typeof presiones === 'string') {
-                            try {
-                                presiones = JSON.parse(presiones);
-                            } catch(e) {
-                                presiones = [];
-                            }
+                            try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
                         }
                         if (Array.isArray(presiones) && presiones.length > 0) {
                             presiones.forEach(function(p) {
@@ -2122,26 +2044,10 @@ async function exportarExcel() {
                                 });
                             });
                         } else {
-                            datos.push({
-                                fecha: r.fecha || '',
-                                operador_entrante: r.operador_entrante || '',
-                                operador_saliente: r.operador_saliente || '',
-                                hora: '',
-                                entrada: '',
-                                salida: '',
-                                usuario: r.usuario || ''
-                            });
+                            datos.push({ fecha: r.fecha || '', operador_entrante: r.operador_entrante || '', operador_saliente: r.operador_saliente || '', hora: '', entrada: '', salida: '', usuario: r.usuario || '' });
                         }
                     } catch (e) {
-                        datos.push({
-                            fecha: r.fecha || '',
-                            operador_entrante: r.operador_entrante || '',
-                            operador_saliente: r.operador_saliente || '',
-                            hora: '',
-                            entrada: '',
-                            salida: '',
-                            usuario: r.usuario || ''
-                        });
+                        datos.push({ fecha: r.fecha || '', operador_entrante: r.operador_entrante || '', operador_saliente: r.operador_saliente || '', hora: '', entrada: '', salida: '', usuario: r.usuario || '' });
                     }
                 });
                 if (datos.length > 0) {
@@ -2150,25 +2056,19 @@ async function exportarExcel() {
                 }
             }
         }
-        
         if (wb.SheetNames.length === 0) {
             alert('❌ No hay datos en el período seleccionado');
             return;
         }
-        
         const fecha = new Date().toISOString().split('T')[0];
         XLSX.writeFile(wb, 'GECG_Reporte_' + fecha + '.xlsx');
         alert('✅ Reporte exportado correctamente');
-        
     } catch (error) {
         alert('❌ Error: ' + error.message);
     }
 }
 
-// ============================================================ //
-// ==================== USUARIOS ==================== //
-// ============================================================ //
-
+// ==================== USUARIOS ====================
 async function cargarListaUsuarios() {
     try {
         const usuarios = await apiRequest('/usuarios');
@@ -2237,10 +2137,7 @@ async function eliminarUsuario(id) {
     }
 }
 
-// ============================================================ //
-// ==================== RESPALDOS ==================== //
-// ============================================================ //
-
+// ==================== RESPALDOS ====================
 async function crearRespaldo() {
     try {
         const response = await fetch(API_URL + '/respaldos', {
@@ -2284,9 +2181,7 @@ async function cargarRespaldos() {
             return;
         }
 
-        let html = `<table class="historial-table">
-            <thead><tr><th>Fecha</th><th>Archivo</th></tr></thead>
-            <tbody>`;
+        let html = `<table class="historial-table"><thead><tr><th>Fecha</th><th>Archivo</th></tr></thead><tbody>`;
         respaldos.forEach(function(r) {
             html += `<tr><td>${r.fecha}</td><td>${r.nombre}</td></tr>`;
         });
@@ -2298,10 +2193,7 @@ async function cargarRespaldos() {
     }
 }
 
-// ============================================================ //
-// ==================== INICIAR ==================== //
-// ============================================================ //
-
+// ==================== INICIAR ====================
 const storedUser = localStorage.getItem('gecg_user');
 if (storedUser) {
     try {

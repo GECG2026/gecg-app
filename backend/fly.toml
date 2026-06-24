@@ -1,10 +1,13 @@
 
 app = "gecg-app"
-primary_region = "gru"
+primary_region = "ord"
 
 [build]
   builder = "heroku/buildpacks:20"
   buildpacks = ["heroku/nodejs"]
+
+[env]
+  NODE_ENV = "production"
 
 [http_service]
   internal_port = 3000
@@ -12,11 +15,8 @@ primary_region = "gru"
   auto_stop_machines = false
 
 [[services]]
-  http_checks = []
   internal_port = 3000
-  processes = ["app"]
   protocol = "tcp"
-  script_checks = []
 
   [[services.ports]]
     handlers = ["http"]
@@ -26,14 +26,6 @@ primary_region = "gru"
     handlers = ["tls", "http"]
     port = 443
 
-  [[services.tcp_checks]]
-    interval = 10000
-    timeout = 2000
-    grace_period = "10s"
-
-[env]
-  NODE_ENV = "production"
-
 [mounts]
-  source = "gecg_data"
   destination = "/data"
+  source = "gecg_data"

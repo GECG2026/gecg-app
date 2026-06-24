@@ -14,16 +14,44 @@ app.use(express.json());
 
 // ==================== BASE DE DATOS ====================
 const db = new sqlite3.Database('./database.sqlite', (err) => {
-    if (err) {
-        console.error('❌ Error al conectar a SQLite:', err.message);
-    } else {
-        console.log('✅ Conectado a SQLite');
-    }
+    if (err) console.error('❌ Error SQLite:', err.message);
+    else console.log('✅ Conectado a SQLite');
 });
+
+// ==================== RESPALDOS AUTOMÁTICOS ====================
+const backupsDir = path.join(__dirname, 'backups');
+if (!fs.existsSync(backupsDir)) {
+    fs.mkdirSync(backupsDir);
+    console.log('📁 Carpeta de respaldos creada');
+}
+
+function crearRespaldoAutomatico() {
+    try {
+        const dbFile = path.join(__dirname, 'database.sqlite');
+        const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        const backupFile = path.join(backupsDir, `backup_${fecha}.sqlite`);
+        fs.copyFileSync(dbFile, backupFile);
+        console.log(`⏰ Respaldo automático: ${path.basename(backupFile)}`);
+        
+        const archivos = fs.readdirSync(backupsDir).filter(f => f.endsWith('.sqlite')).sort();
+        if (archivos.length > 30) {
+            const eliminar = archivos.slice(0, archivos.length - 30);
+            eliminar.forEach(f => {
+                fs.unlinkSync(path.join(backupsDir, f));
+                console.log(`🗑️ Respaldo antiguo eliminado: ${f}`);
+            });
+        }
+    } catch (error) {
+        console.error('Error en respaldo:', error);
+    }
+}
+
+setInterval(crearRespaldoAutomatico, 3600000);
+crearRespaldoAutomatico();
+console.log('✅ Respaldos automáticos activados (cada hora)');
 
 // ==================== CREAR TABLAS ====================
 db.serialize(() => {
-    // Usuarios
     db.run(`CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,
@@ -32,7 +60,6 @@ db.serialize(() => {
         rol TEXT DEFAULT 'Operador'
     )`);
 
-    // Configuración
     db.run(`CREATE TABLE IF NOT EXISTS configuracion (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         tipo TEXT NOT NULL,
@@ -40,7 +67,6 @@ db.serialize(() => {
         orden INTEGER DEFAULT 0
     )`);
 
-    // Embalses
     db.run(`CREATE TABLE IF NOT EXISTS embalses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -57,7 +83,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Plantas
     db.run(`CREATE TABLE IF NOT EXISTS plantas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -74,7 +99,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Estaciones
     db.run(`CREATE TABLE IF NOT EXISTS estaciones (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -90,7 +114,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Diques
     db.run(`CREATE TABLE IF NOT EXISTS diques (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -108,7 +131,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Maniobras
     db.run(`CREATE TABLE IF NOT EXISTS maniobras (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -123,7 +145,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // Presiones
     db.run(`CREATE TABLE IF NOT EXISTS presiones (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -143,7 +164,6 @@ db.serialize(() => {
         }
     });
 
-    // Usuario operador
     db.get('SELECT * FROM usuarios WHERE username = "operador"', (err, row) => {
         if (!row) {
             db.run(`INSERT INTO usuarios (username, password, nombre_completo, rol) 
@@ -180,37 +200,19 @@ db.serialize(() => {
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
     db.get('SELECT * FROM usuarios WHERE username = ?', [username], (err, user) => {
-        if (err || !user) {
-            return res.status(401).json({ error: 'Usuario no encontrado' });
-        }
-        if (user.password !== password) {
-            return res.status(401).json({ error: 'Contraseña incorrecta' });
-        }
-        const token = jwt.sign(
-            { id: user.id, username: user.username, rol: user.rol },
-            SECRET_KEY,
-            { expiresIn: '24h' }
-        );
-        res.json({
-            token,
-            user: {
-                id: user.id,
-                username: user.username,
-                nombre: user.nombre_completo,
-                rol: user.rol
-            }
-        });
+        if (err || !user) return res.status(401).json({ error: 'Usuario no encontrado' });
+        if (user.password !== password) return res.status(401).json({ error: 'Contraseña incorrecta' });
+        const token = jwt.sign({ id: user.id, username: user.username, rol: user.rol }, SECRET_KEY, { expiresIn: '24h' });
+        res.json({ token, user: { id: user.id, username: user.username, nombre: user.nombre_completo, rol: user.rol } });
     });
 });
 
-// ==================== VERIFICAR TOKEN ====================
 function verificarToken(req, res, next) {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'Token requerido' });
     try {
-        const decoded = jwt.verify(token, SECRET_KEY);
-        req.user = decoded;
+        req.user = jwt.verify(token, SECRET_KEY);
         next();
     } catch (err) {
         return res.status(403).json({ error: 'Token inválido' });
@@ -232,12 +234,8 @@ function crearCRUD(tabla, fields) {
         const values = keys.map(k => req.body[k]);
         const sql = `INSERT INTO ${tabla} (${keys.join(',')}) VALUES (${placeholders})`;
         db.run(sql, values, function(err) {
-            if (err) {
-                console.error(`❌ Error en ${tabla}:`, err);
-                res.status(500).json({ error: err.message });
-            } else {
-                res.json({ id: this.lastID });
-            }
+            if (err) { res.status(500).json({ error: err.message }); }
+            else { res.json({ id: this.lastID }); }
         });
     });
 
@@ -273,16 +271,11 @@ app.get('/api/configuracion', verificarToken, (req, res) => {
 
 app.post('/api/configuracion', verificarToken, (req, res) => {
     const { tipo, valores } = req.body;
-    if (!tipo || !Array.isArray(valores)) {
-        return res.status(400).json({ error: 'Datos inválidos' });
-    }
-    
+    if (!tipo || !Array.isArray(valores)) return res.status(400).json({ error: 'Datos inválidos' });
     db.run('DELETE FROM configuracion WHERE tipo = ?', [tipo], function(err) {
         if (err) return res.status(500).json({ error: err.message });
         const stmt = db.prepare('INSERT INTO configuracion (tipo, valor, orden) VALUES (?, ?, ?)');
-        valores.forEach((valor, idx) => {
-            stmt.run(tipo, valor, idx);
-        });
+        valores.forEach((valor, idx) => { stmt.run(tipo, valor, idx); });
         stmt.finalize();
         res.json({ success: true });
     });
@@ -337,13 +330,7 @@ app.get('/api/reporte/exportar', verificarToken, (req, res) => {
     });
 });
 
-// ==================== RESPALDOS ====================
-const backupsDir = path.join(__dirname, 'backups');
-if (!fs.existsSync(backupsDir)) {
-    fs.mkdirSync(backupsDir);
-    console.log('📁 Carpeta de respaldos creada');
-}
-
+// ==================== RESPALDOS (MANUALES) ====================
 app.get('/api/respaldos', verificarToken, (req, res) => {
     try {
         const archivos = fs.readdirSync(backupsDir)
@@ -388,12 +375,6 @@ app.get('*', (req, res) => {
 
 // ==================== INICIAR SERVIDOR ====================
 app.listen(PORT, () => {
-    console.log('\n========================================');
-    console.log('🚀 GECG - Servidor corriendo');
-    console.log(`📡 http://localhost:${PORT}`);
-    console.log('========================================');
-    console.log('📝 Credenciales:');
-    console.log('   admin / admin123');
-    console.log('   operador / operador123');
-    console.log('========================================\n');
+    console.log(`\n🚀 GECG - Servidor corriendo en http://localhost:${PORT}`);
+    console.log('📝 Credenciales: admin / admin123\n');
 });
