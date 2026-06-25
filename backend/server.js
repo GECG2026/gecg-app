@@ -145,6 +145,7 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
+    // ===== TABLA PRESIONES CORREGIDA =====
     db.run(`CREATE TABLE IF NOT EXISTS presiones (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -252,7 +253,44 @@ crearCRUD('embalses', ['fecha', 'embalse', 'operador_entrante', 'operador_salien
 crearCRUD('plantas', ['fecha', 'planta', 'operador_entrante', 'operador_saliente', 'turbiedad', 'color', 'cloro_residual', 'ph', 'produccion', 'sustancias', 'usuario']);
 crearCRUD('estaciones', ['fecha', 'estacion', 'operador_entrante', 'operador_saliente', 'tension', 'succion', 'potencia', 'descarga', 'grupos', 'usuario']);
 crearCRUD('maniobras', ['fecha', 'hora', 'ubicacion', 'responsable', 'tipo', 'equipo', 'descripcion', 'resultado', 'usuario']);
-crearCRUD('presiones', ['fecha', 'operador_entrante', 'operador_saliente', 'presiones']);
+
+// ==================== CRUD PRESIONES CORREGIDO ====================
+app.get('/api/presiones', verificarToken, (req, res) => {
+    db.all('SELECT * FROM presiones ORDER BY id DESC', (err, rows) => {
+        if (err) res.status(500).json({ error: err.message });
+        else res.json(rows);
+    });
+});
+
+app.post('/api/presiones', verificarToken, (req, res) => {
+    const { fecha, operador_entrante, operador_saliente, presiones } = req.body;
+    
+    // Verificar que presiones sea un array
+    let presionesJson = '[]';
+    if (Array.isArray(presiones) && presiones.length > 0) {
+        presionesJson = JSON.stringify(presiones);
+    }
+    
+    const sql = `INSERT INTO presiones (fecha, operador_entrante, operador_saliente, presiones) 
+                 VALUES (?, ?, ?, ?)`;
+    
+    db.run(sql, [fecha, operador_entrante, operador_saliente, presionesJson], function(err) {
+        if (err) {
+            console.error('❌ Error al guardar presiones:', err);
+            res.status(500).json({ error: err.message });
+        } else {
+            console.log('✅ Presiones guardadas con ID:', this.lastID);
+            res.json({ id: this.lastID });
+        }
+    });
+});
+
+app.delete('/api/presiones/:id', verificarToken, (req, res) => {
+    db.run('DELETE FROM presiones WHERE id = ?', [req.params.id], function(err) {
+        if (err) res.status(500).json({ error: err.message });
+        else res.json({ deleted: this.changes });
+    });
+});
 
 // ==================== CONFIGURACIÓN ====================
 app.get('/api/configuracion', verificarToken, (req, res) => {
@@ -330,7 +368,7 @@ app.get('/api/reporte/exportar', verificarToken, (req, res) => {
     });
 });
 
-// ==================== RESPALDOS (MANUALES) ====================
+// ==================== RESPALDOS ====================
 app.get('/api/respaldos', verificarToken, (req, res) => {
     try {
         const archivos = fs.readdirSync(backupsDir)
