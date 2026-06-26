@@ -25,6 +25,13 @@ if (!fs.existsSync(backupsDir)) {
     console.log('📁 Carpeta de respaldos creada');
 }
 
+// ==================== RESPALDOS EN JSON (para descargar) ====================
+const jsonBackupsDir = path.join(__dirname, 'json_backups');
+if (!fs.existsSync(jsonBackupsDir)) {
+    fs.mkdirSync(jsonBackupsDir);
+    console.log('📁 Carpeta de respaldos JSON creada');
+}
+
 function crearRespaldoAutomatico() {
     try {
         const dbFile = path.join(__dirname, 'database.sqlite');
@@ -145,7 +152,6 @@ db.serialize(() => {
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )`);
 
-    // ===== TABLA PRESIONES CORREGIDA =====
     db.run(`CREATE TABLE IF NOT EXISTS presiones (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         fecha TEXT NOT NULL,
@@ -246,6 +252,14 @@ function crearCRUD(tabla, fields) {
             else res.json({ deleted: this.changes });
         });
     });
+
+    // 👇 NUEVA RUTA: Eliminar TODOS los registros de una tabla (para restaurar)
+    app.delete(`/api/${tabla}/todos`, verificarToken, (req, res) => {
+        db.run(`DELETE FROM ${tabla}`, function(err) {
+            if (err) res.status(500).json({ error: err.message });
+            else res.json({ deleted: this.changes });
+        });
+    });
 }
 
 crearCRUD('diques', ['fecha', 'hora', 'dique', 'operador_entrante', 'operador_saliente', 'cota', 'caudal', 'ph', 'turbiedad', 'situacion', 'detalle', 'usuario']);
@@ -264,16 +278,12 @@ app.get('/api/presiones', verificarToken, (req, res) => {
 
 app.post('/api/presiones', verificarToken, (req, res) => {
     const { fecha, operador_entrante, operador_saliente, presiones } = req.body;
-    
-    // Verificar que presiones sea un array
     let presionesJson = '[]';
     if (Array.isArray(presiones) && presiones.length > 0) {
         presionesJson = JSON.stringify(presiones);
     }
-    
     const sql = `INSERT INTO presiones (fecha, operador_entrante, operador_saliente, presiones) 
                  VALUES (?, ?, ?, ?)`;
-    
     db.run(sql, [fecha, operador_entrante, operador_saliente, presionesJson], function(err) {
         if (err) {
             console.error('❌ Error al guardar presiones:', err);
@@ -287,6 +297,14 @@ app.post('/api/presiones', verificarToken, (req, res) => {
 
 app.delete('/api/presiones/:id', verificarToken, (req, res) => {
     db.run('DELETE FROM presiones WHERE id = ?', [req.params.id], function(err) {
+        if (err) res.status(500).json({ error: err.message });
+        else res.json({ deleted: this.changes });
+    });
+});
+
+// 👇 ELIMINAR TODAS LAS PRESIONES (para restaurar)
+app.delete('/api/presiones/todos', verificarToken, (req, res) => {
+    db.run('DELETE FROM presiones', function(err) {
         if (err) res.status(500).json({ error: err.message });
         else res.json({ deleted: this.changes });
     });
@@ -369,6 +387,8 @@ app.get('/api/reporte/exportar', verificarToken, (req, res) => {
 });
 
 // ==================== RESPALDOS ====================
+
+// 📋 LISTAR RESPALDOS (SQLite)
 app.get('/api/respaldos', verificarToken, (req, res) => {
     try {
         const archivos = fs.readdirSync(backupsDir)
@@ -384,19 +404,165 @@ app.get('/api/respaldos', verificarToken, (req, res) => {
     }
 });
 
+// 💾 CREAR RESPALDO (SQLite y JSON)
 app.post('/api/respaldos', verificarToken, (req, res) => {
     try {
+        // Respaldo SQLite
         const dbFile = path.join(__dirname, 'database.sqlite');
         const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const backupFile = path.join(backupsDir, `backup_${fecha}.sqlite`);
         fs.copyFileSync(dbFile, backupFile);
-        res.json({ message: '✅ Respaldo creado' });
+        
+        // Respaldo JSON (para descargar y restaurar)
+        const jsonFile = path.join(jsonBackupsDir, `respaldo_${fecha}.json`);
+        const tablas = ['embalses', 'diques', 'plantas', 'estaciones', 'maniobras', 'presiones'];
+        const datos = {};
+        let completadas = 0;
+        
+        tablas.forEach(tabla => {
+            db.all(`SELECT * FROM ${tabla}`, (err, rows) => {
+                if (err) {
+                    datos[tabla] = [];
+                } else {
+                    datos[tabla] = rows || [];
+                }
+                completadas++;
+                if (completadas === tablas.length) {
+                    fs.writeFileSync(jsonFile, JSON.stringify(datos, null, 2));
+                    console.log(`✅ Respaldo JSON creado: ${path.basename(jsonFile)}`);
+                    res.json({ message: '✅ Respaldo creado', archivo: path.basename(jsonFile) });
+                }
+            });
+        });
+        
+        // Limpiar respaldos JSON antiguos (mantener últimos 30)
+        setTimeout(() => {
+            try {
+                const jsonArchivos = fs.readdirSync(jsonBackupsDir).filter(f => f.endsWith('.json')).sort();
+                if (jsonArchivos.length > 30) {
+                    const eliminar = jsonArchivos.slice(0, jsonArchivos.length - 30);
+                    eliminar.forEach(f => {
+                        fs.unlinkSync(path.join(jsonBackupsDir, f));
+                        console.log(`🗑️ Respaldo JSON antiguo eliminado: ${f}`);
+                    });
+                }
+            } catch(e) {}
+        }, 1000);
+        
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
 
-// ==================== SERVIR FRONTEND ====================
+// 📥 DESCARGAR RESPALDO (JSON)
+app.get('/api/respaldos/:nombre', verificarToken, (req, res) => {
+    try {
+        const { nombre } = req.params;
+        // Buscar primero en json_backups, luego en backups
+        let filePath = path.join(jsonBackupsDir, nombre);
+        if (!fs.existsSync(filePath)) {
+            // Si no es JSON, buscar en backups
+            filePath = path.join(backupsDir, nombre);
+            if (!fs.existsSync(filePath)) {
+                return res.status(404).json({ error: 'Respaldo no encontrado' });
+            }
+            // Si es .sqlite, convertirlo a JSON
+            if (nombre.endsWith('.sqlite')) {
+                return res.status(400).json({ error: 'Formato no soportado para descarga. Use respaldos JSON.' });
+            }
+        }
+        res.download(filePath, nombre, (err) => {
+            if (err) {
+                console.error('Error al descargar:', err);
+                if (!res.headersSent) {
+                    res.status(500).json({ error: 'Error al descargar' });
+                }
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 📤 RESTAURAR DESDE ARCHIVO LOCAL (requiere archivo JSON)
+app.post('/api/restaurar', verificarToken, (req, res) => {
+    try {
+        const datos = req.body;
+        const tablas = ['embalses', 'diques', 'plantas', 'estaciones', 'maniobras', 'presiones'];
+        let procesadas = 0;
+        
+        // Verificar que los datos tengan las tablas esperadas
+        const tablasFaltantes = tablas.filter(t => !datos[t]);
+        if (tablasFaltantes.length > 0) {
+            return res.status(400).json({ 
+                error: 'Formato inválido. Faltan tablas: ' + tablasFaltantes.join(', ') 
+            });
+        }
+        
+        // Procesar cada tabla
+        tablas.forEach(tabla => {
+            db.run(`DELETE FROM ${tabla}`, function(err) {
+                if (err) {
+                    console.error(`Error al limpiar ${tabla}:`, err);
+                    procesadas++;
+                    if (procesadas === tablas.length) {
+                        res.json({ success: true, procesadas: procesadas });
+                    }
+                    return;
+                }
+                
+                const registros = datos[tabla] || [];
+                if (registros.length === 0) {
+                    procesadas++;
+                    if (procesadas === tablas.length) {
+                        res.json({ success: true, procesadas: procesadas });
+                    }
+                    return;
+                }
+                
+                // Insertar registros de la tabla
+                let insertados = 0;
+                const insertarRegistro = (idx) => {
+                    if (idx >= registros.length) {
+                        procesadas++;
+                        if (procesadas === tablas.length) {
+                            res.json({ success: true, procesadas: procesadas });
+                        }
+                        return;
+                    }
+                    
+                    const registro = registros[idx];
+                    const keys = Object.keys(registro).filter(k => k !== 'id' && k !== 'created_at');
+                    const placeholders = keys.map(() => '?').join(',');
+                    const values = keys.map(k => registro[k]);
+                    const sql = `INSERT INTO ${tabla} (${keys.join(',')}) VALUES (${placeholders})`;
+                    
+                    db.run(sql, values, function(err) {
+                        if (err) {
+                            console.error(`Error al insertar en ${tabla}:`, err);
+                        }
+                        insertados++;
+                        if (insertados === registros.length) {
+                            procesadas++;
+                            if (procesadas === tablas.length) {
+                                res.json({ success: true, procesadas: procesadas, total: registros.length });
+                            }
+                        }
+                    });
+                };
+                
+                // Iniciar inserción
+                insertarRegistro(0);
+            });
+        });
+        
+    } catch (error) {
+        console.error('Error al restaurar:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ==================== SERVIDOR FRONTEND ====================
 const frontendPath = path.join(__dirname, 'frontend');
 console.log('📁 Ruta del frontend:', frontendPath);
 app.use(express.static(frontendPath));
@@ -414,5 +580,7 @@ app.get('*', (req, res) => {
 // ==================== INICIAR SERVIDOR ====================
 app.listen(PORT, () => {
     console.log(`\n🚀 GECG - Servidor corriendo en http://localhost:${PORT}`);
-    console.log('📝 Credenciales: admin / admin123\n');
+    console.log('📝 Credenciales: admin / admin123');
+    console.log('📁 Respaldos SQLite: ./backups/');
+    console.log('📁 Respaldos JSON: ./json_backups/');
 });
