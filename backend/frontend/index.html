@@ -218,11 +218,11 @@
             <div class="login-body">
                 <div class="input-group">
                     <i class="fas fa-user"></i>
-                    <input type="text" id="username" placeholder="Usuario" value="admin">
+                    <input type="text" id="username" placeholder="Usuario">
                 </div>
                 <div class="input-group">
                     <i class="fas fa-lock"></i>
-                    <input type="password" id="password" placeholder="Contraseña" value="admin123">
+                    <input type="password" id="password" placeholder="Contraseña">
                 </div>
                 <button class="btn-login" onclick="login()">Ingresar</button>
                 <div id="errorMsg" class="error-msg"></div>
@@ -769,12 +769,27 @@ function mostrarDashboard() {
     if (admin) cargarConfiguracionAdmin();
 }
 
+// ==================== CERRAR SESIÓN ====================
 function logout() {
+    // Confirmar cierre de sesión
+    if (!confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+        return;
+    }
+    
+    // Limpiar datos de sesión pero NO la configuración
     currentUser = null;
-    localStorage.removeItem('gecg_token');
     localStorage.removeItem('gecg_user');
+    localStorage.removeItem('gecg_token');
+    
+    // Mostrar pantalla de login
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('dashboardScreen').style.display = 'none';
+    
+    // Limpiar campos de login
+    document.getElementById('username').value = '';
+    document.getElementById('password').value = '';
+    
+    console.log('✅ Sesión cerrada correctamente');
 }
 
 function toggleSidebar() {
@@ -1095,7 +1110,11 @@ function abrirModalWhatsApp(tabla) {
     };
     
     const hoy = new Date().toISOString().split('T')[0];
-    document.getElementById('whatsappFechaInicio').value = hoy;
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const fechaAyer = ayer.toISOString().split('T')[0];
+    
+    document.getElementById('whatsappFechaInicio').value = fechaAyer;
     document.getElementById('whatsappFechaFin').value = hoy;
     
     const nombres = {
@@ -1110,14 +1129,6 @@ function abrirModalWhatsApp(tabla) {
     
     document.getElementById('modalWhatsApp').style.display = 'flex';
     cargarRegistrosWhatsApp();
-}
-
-function abrirModalWhatsAppDispositivo() {
-    abrirModalWhatsApp('presiones');
-}
-
-function cerrarModalWhatsApp() {
-    document.getElementById('modalWhatsApp').style.display = 'none';
 }
 
 async function cargarRegistrosWhatsApp() {
@@ -1146,9 +1157,27 @@ async function cargarRegistrosWhatsApp() {
             return;
         }
         
-        let html = '<table class="historial-table"><thead><tr><th><input type="checkbox" id="whatsappSelectAll" onchange="seleccionarTodosWhatsApp(this.checked)"></th><th>Fecha</th><th>Detalle</th></tr></thead><tbody>';
+        let html = `
+            <div style="margin-bottom: 10px;">
+                <button class="btn btn-info btn-sm" onclick="seleccionarTodosWhatsApp(true)">✅ Seleccionar todos</button>
+                <button class="btn btn-secondary btn-sm" onclick="seleccionarTodosWhatsApp(false)">❌ Deseleccionar todos</button>
+                <span style="margin-left: 10px; font-size: 12px; color: #666;">Registros encontrados: ${filtrados.length}</span>
+            </div>
+            <table class="historial-table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" id="whatsappSelectAll" onchange="seleccionarTodosWhatsApp(this.checked)"></th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
+                        <th>Detalle</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
         filtrados.forEach((r, idx) => {
             let detalle = '';
+            let hora = r.hora || '';
             if (r.embalse) detalle = 'Embalse: ' + r.embalse;
             else if (r.planta) detalle = 'Planta: ' + r.planta;
             else if (r.estacion) detalle = 'Estación: ' + r.estacion;
@@ -1160,9 +1189,11 @@ async function cargarRegistrosWhatsApp() {
             html += `<tr>
                 <td><input type="checkbox" class="whatsapp-checkbox" value="${idx}" checked></td>
                 <td>${r.fecha || '-'}</td>
+                <td>${hora || '-'}</td>
                 <td>${detalle}</td>
             </tr>`;
         });
+        
         html += '</tbody></table>';
         container.innerHTML = html;
         
@@ -1275,6 +1306,242 @@ function enviarWhatsAppGenerico(tabla, registros) {
     }
     texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
     window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+}
+
+// ==================== DISPOSITIVO - WHATSAPP CON HORAS DE DIFERENTES FECHAS ====================
+function abrirModalWhatsAppDispositivo() {
+    // Usar el modal de WhatsApp con la tabla 'presiones'
+    whatsappTablaActual = 'presiones';
+    whatsappCallback = function(registrosSeleccionados) {
+        // Reconstruir los registros con las horas seleccionadas
+        const indices = registrosSeleccionados.map(r => r._index);
+        const datosEnviar = [];
+        let idx = 0;
+        
+        // Obtener los registros filtrados nuevamente
+        const fechaInicio = document.getElementById('whatsappFechaInicio').value;
+        const fechaFin = document.getElementById('whatsappFechaFin').value;
+        let filtrados = whatsappRegistrosActuales;
+        if (fechaInicio && fechaFin) {
+            filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
+        }
+        
+        filtrados.forEach(r => {
+            let presiones = r.presiones;
+            if (typeof presiones === 'string') {
+                try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
+            }
+            if (Array.isArray(presiones) && presiones.length > 0) {
+                presiones.forEach(p => {
+                    if (indices.includes(idx)) {
+                        datosEnviar.push({
+                            fecha: r.fecha,
+                            operador_entrante: r.operador_entrante,
+                            operador_saliente: r.operador_saliente,
+                            hora: p.hora,
+                            entrada: p.entrada,
+                            salida: p.salida,
+                            usuario: r.usuario
+                        });
+                    }
+                    idx++;
+                });
+            } else {
+                if (indices.includes(idx)) {
+                    datosEnviar.push({
+                        fecha: r.fecha,
+                        operador_entrante: r.operador_entrante,
+                        operador_saliente: r.operador_saliente,
+                        hora: '',
+                        entrada: '',
+                        salida: '',
+                        usuario: r.usuario
+                    });
+                }
+                idx++;
+            }
+        });
+        
+        // Generar el mensaje con los datos seleccionados
+        let texto = '*GECG - DISPOSITIVO - PRESIONES*\n';
+        texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+        datosEnviar.forEach(d => {
+            texto += `📅 Fecha: ${d.fecha}\n`;
+            texto += `👤 Op.E: ${d.operador_entrante || '-'}\n`;
+            texto += `👥 Op.S: ${d.operador_saliente || '-'}\n`;
+            texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            texto += `🕐 Hora: ${d.hora || '--:--'}\n`;
+            texto += `   📥 Entrada: ${d.entrada || '-'} PSI\n`;
+            texto += `   📤 Salida: ${d.salida || '-'} PSI\n`;
+            texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+        });
+        texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+        cerrarModalWhatsApp();
+    };
+    
+    const hoy = new Date().toISOString().split('T')[0];
+    const ayer = new Date();
+    ayer.setDate(ayer.getDate() - 1);
+    const fechaAyer = ayer.toISOString().split('T')[0];
+    
+    document.getElementById('whatsappFechaInicio').value = fechaAyer;
+    document.getElementById('whatsappFechaFin').value = hoy;
+    
+    document.getElementById('whatsappModalTitle').textContent = '📱 Enviar WhatsApp - Dispositivo (Presiones)';
+    
+    document.getElementById('modalWhatsApp').style.display = 'flex';
+    cargarRegistrosWhatsAppDispositivo();
+}
+
+async function cargarRegistrosWhatsAppDispositivo() {
+    const container = document.getElementById('whatsappRegistrosContainer');
+    container.innerHTML = '<p class="text-muted">Cargando registros de presiones...</p>';
+    
+    try {
+        const registros = await apiRequest('/presiones');
+        whatsappRegistrosActuales = registros || [];
+        
+        if (whatsappRegistrosActuales.length === 0) {
+            container.innerHTML = '<p class="text-muted">No hay registros de presiones disponibles</p>';
+            return;
+        }
+        
+        const fechaInicio = document.getElementById('whatsappFechaInicio').value;
+        const fechaFin = document.getElementById('whatsappFechaFin').value;
+        
+        // Filtrar por fechas
+        let filtrados = whatsappRegistrosActuales;
+        if (fechaInicio && fechaFin) {
+            filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
+        }
+        
+        if (filtrados.length === 0) {
+            container.innerHTML = '<p class="text-muted">No hay registros en el rango de fechas</p>';
+            return;
+        }
+        
+        let html = `
+            <div style="margin-bottom: 10px;">
+                <button class="btn btn-info btn-sm" onclick="seleccionarTodosWhatsApp(true)">✅ Seleccionar todos</button>
+                <button class="btn btn-secondary btn-sm" onclick="seleccionarTodosWhatsApp(false)">❌ Deseleccionar todos</button>
+                <span style="margin-left: 10px; font-size: 12px; color: #666;">Registros: ${filtrados.length}</span>
+            </div>
+            <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;">
+                <table class="historial-table">
+                    <thead>
+                        <tr>
+                            <th><input type="checkbox" id="whatsappSelectAll" onchange="seleccionarTodosWhatsApp(this.checked)"></th>
+                            <th>Fecha</th>
+                            <th>Hora</th>
+                            <th>Entrada (PSI)</th>
+                            <th>Salida (PSI)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+        
+        let index = 0;
+        filtrados.forEach((r) => {
+            let presiones = r.presiones;
+            if (typeof presiones === 'string') {
+                try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
+            }
+            
+            if (Array.isArray(presiones) && presiones.length > 0) {
+                presiones.forEach(p => {
+                    html += `<tr>
+                        <td><input type="checkbox" class="whatsapp-checkbox" value="${index}" checked></td>
+                        <td>${r.fecha || '-'}</td>
+                        <td>${p.hora || '--:--'}</td>
+                        <td>${p.entrada || '-'}</td>
+                        <td>${p.salida || '-'}</td>
+                    </tr>`;
+                    index++;
+                });
+            } else {
+                html += `<tr>
+                    <td><input type="checkbox" class="whatsapp-checkbox" value="${index}" checked></td>
+                    <td>${r.fecha || '-'}</td>
+                    <td>--:--</td>
+                    <td>-</td>
+                    <td>-</td>
+                </tr>`;
+                index++;
+            }
+        });
+        
+        html += '</tbody></table></div>';
+        container.innerHTML = html;
+        
+        // Guardar referencia a los registros filtrados para el callback
+        const registrosFiltrados = filtrados;
+        
+        // Actualizar el callback para manejar presiones por hora
+        const originalCallback = whatsappCallback;
+        whatsappCallback = function(registrosSeleccionados) {
+            // Reconstruir los registros con las horas seleccionadas
+            const indices = registrosSeleccionados.map(r => parseInt(r._index) || parseInt(r.value));
+            const datosEnviar = [];
+            let idx = 0;
+            
+            registrosFiltrados.forEach(r => {
+                let presiones = r.presiones;
+                if (typeof presiones === 'string') {
+                    try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
+                }
+                if (Array.isArray(presiones) && presiones.length > 0) {
+                    presiones.forEach(p => {
+                        if (indices.includes(idx)) {
+                            datosEnviar.push({
+                                fecha: r.fecha,
+                                operador_entrante: r.operador_entrante,
+                                operador_saliente: r.operador_saliente,
+                                hora: p.hora,
+                                entrada: p.entrada,
+                                salida: p.salida,
+                                usuario: r.usuario
+                            });
+                        }
+                        idx++;
+                    });
+                } else {
+                    if (indices.includes(idx)) {
+                        datosEnviar.push({
+                            fecha: r.fecha,
+                            operador_entrante: r.operador_entrante,
+                            operador_saliente: r.operador_saliente,
+                            hora: '',
+                            entrada: '',
+                            salida: '',
+                            usuario: r.usuario
+                        });
+                    }
+                    idx++;
+                }
+            });
+            
+            // Generar el mensaje con los datos seleccionados
+            let texto = '*GECG - DISPOSITIVO - PRESIONES*\n';
+            texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+            datosEnviar.forEach(d => {
+                texto += `📅 Fecha: ${d.fecha}\n`;
+                texto += `👤 Op.E: ${d.operador_entrante || '-'}\n`;
+                texto += `👥 Op.S: ${d.operador_saliente || '-'}\n`;
+                texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
+                texto += `🕐 Hora: ${d.hora || '--:--'}\n`;
+                texto += `   📥 Entrada: ${d.entrada || '-'} PSI\n`;
+                texto += `   📤 Salida: ${d.salida || '-'} PSI\n`;
+                texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+            });
+            texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
+            window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+            cerrarModalWhatsApp();
+        };
+        
+    } catch (error) {
+        container.innerHTML = '<p class="text-danger">Error: ' + error.message + '</p>';
+    }
 }
 
 // ==================== ELIMINAR REGISTRO ====================
