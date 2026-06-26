@@ -28,7 +28,7 @@
         .btn-login { width: 100%; padding: 12px; background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
         .btn-login:hover { background: linear-gradient(135deg, #2d6a4f 0%, #1a472a 100%); }
         .error-msg { color: red; font-size: 14px; margin-top: 10px; display: none; text-align: center; }
-        .small-text { text-align: center; margin-top: 15px; font-size: 12px; color: #6c757d; }
+        .small-text { text-align: center; margin-top: 15px; font-size: 12px; color: #6c757d; display: none; }
         
         .dashboard-container { display: none; }
         .wrapper { display: flex; width: 100%; min-height: 100vh; }
@@ -226,7 +226,6 @@
                 </div>
                 <button class="btn-login" onclick="login()">Ingresar</button>
                 <div id="errorMsg" class="error-msg"></div>
-                <div class="small-text">admin / admin123 | operador / operador123</div>
             </div>
         </div>
     </div>
@@ -634,6 +633,7 @@
             <div style="display: flex; gap: 5px; flex-wrap: wrap;">
                 <button class="btn btn-info btn-sm" onclick="seleccionarTodosWhatsApp(true)">✅ Seleccionar todos</button>
                 <button class="btn btn-secondary btn-sm" onclick="seleccionarTodosWhatsApp(false)">❌ Deseleccionar todos</button>
+                <button class="btn btn-warning btn-sm" onclick="actualizarFechasWhatsApp()">🔄 Actualizar</button>
             </div>
             <div style="display: flex; gap: 10px;">
                 <button class="btn btn-secondary" onclick="cerrarModalWhatsApp()">Cancelar</button>
@@ -1103,15 +1103,23 @@ async function guardarConfiguracion() {
 }
 
 // ==================== WHATSAPP MODAL ====================
+function cerrarModalWhatsApp() {
+    document.getElementById('modalWhatsApp').style.display = 'none';
+    whatsappRegistrosActuales = [];
+    whatsappTablaActual = '';
+    whatsappCallback = null;
+}
+
 function abrirModalWhatsApp(tabla) {
     whatsappTablaActual = tabla;
     whatsappCallback = function(registros) {
         enviarWhatsAppGenerico(tabla, registros);
+        cerrarModalWhatsApp();
     };
     
     const hoy = new Date().toISOString().split('T')[0];
     const ayer = new Date();
-    ayer.setDate(ayer.getDate() - 1);
+    ayer.setDate(ayer.getDate() - 7);
     const fechaAyer = ayer.toISOString().split('T')[0];
     
     document.getElementById('whatsappFechaInicio').value = fechaAyer;
@@ -1128,6 +1136,10 @@ function abrirModalWhatsApp(tabla) {
     document.getElementById('whatsappModalTitle').textContent = '📱 Enviar WhatsApp - ' + (nombres[tabla] || tabla);
     
     document.getElementById('modalWhatsApp').style.display = 'flex';
+    cargarRegistrosWhatsApp();
+}
+
+function actualizarFechasWhatsApp() {
     cargarRegistrosWhatsApp();
 }
 
@@ -1221,7 +1233,6 @@ function enviarWhatsAppSeleccionado() {
     if (whatsappCallback) {
         whatsappCallback(registros);
     }
-    cerrarModalWhatsApp();
 }
 
 function enviarWhatsAppGenerico(tabla, registros) {
@@ -1272,31 +1283,6 @@ function enviarWhatsAppGenerico(tabla, registros) {
             });
             break;
             
-        case 'presiones':
-            texto = '*GECG - DISPOSITIVO - PRESIONES*\n';
-            texto += '━━━━━━━━━━━━━━━━━━━━━\n';
-            registros.forEach(r => {
-                texto += `📅 Fecha: ${r.fecha}\n`;
-                texto += `👤 Op.E: ${r.operador_entrante || '-'}\n`;
-                texto += `👥 Op.S: ${r.operador_saliente || '-'}\n`;
-                texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                let presiones = r.presiones;
-                if (typeof presiones === 'string') {
-                    try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
-                }
-                if (Array.isArray(presiones) && presiones.length > 0) {
-                    presiones.forEach(p => {
-                        texto += `🕐 ${p.hora || '--:--'}\n`;
-                        texto += `   📥 Entrada: ${p.entrada || '-'} PSI\n`;
-                        texto += `   📤 Salida: ${p.salida || '-'} PSI\n\n`;
-                    });
-                } else {
-                    texto += `📊 Sin datos de presiones\n\n`;
-                }
-                texto += '━━━━━━━━━━━━━━━━━━━━━\n';
-            });
-            break;
-            
         default:
             texto = '*GECG - REPORTE*\n';
             texto += '━━━━━━━━━━━━━━━━━━\n';
@@ -1310,7 +1296,6 @@ function enviarWhatsAppGenerico(tabla, registros) {
 
 // ==================== DISPOSITIVO - WHATSAPP CON HORAS DE DIFERENTES FECHAS ====================
 function abrirModalWhatsAppDispositivo() {
-    // Usar el modal de WhatsApp con la tabla 'presiones'
     whatsappTablaActual = 'presiones';
     whatsappCallback = function(registrosSeleccionados) {
         // Reconstruir los registros con las horas seleccionadas
@@ -1382,7 +1367,7 @@ function abrirModalWhatsAppDispositivo() {
     
     const hoy = new Date().toISOString().split('T')[0];
     const ayer = new Date();
-    ayer.setDate(ayer.getDate() - 1);
+    ayer.setDate(ayer.getDate() - 7);
     const fechaAyer = ayer.toISOString().split('T')[0];
     
     document.getElementById('whatsappFechaInicio').value = fechaAyer;
@@ -1410,7 +1395,6 @@ async function cargarRegistrosWhatsAppDispositivo() {
         const fechaInicio = document.getElementById('whatsappFechaInicio').value;
         const fechaFin = document.getElementById('whatsappFechaFin').value;
         
-        // Filtrar por fechas
         let filtrados = whatsappRegistrosActuales;
         if (fechaInicio && fechaFin) {
             filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
@@ -1952,10 +1936,7 @@ async function guardarEstacion() {
 
 async function cargarHistorialEstaciones() {
     try {
-        console.log('📋 Cargando historial de Estaciones...');
         const registros = await apiRequest('/estaciones');
-        console.log('📋 Registros recibidos:', registros);
-        
         const tbody = document.getElementById('cuerpoHistorialEstaciones');
         if (!tbody) {
             console.error('❌ No se encontró el elemento cuerpoHistorialEstaciones');
@@ -1989,8 +1970,6 @@ async function cargarHistorialEstaciones() {
                 '<td><button class="btn-small" onclick="eliminarRegistro(\'estaciones\', ' + r.id + ')">Eliminar</button></td>' +
                 '</tr>';
         }).join('');
-        
-        console.log('✅ Historial de Estaciones actualizado');
         
     } catch (error) {
         console.error('❌ Error al cargar historial de Estaciones:', error);
