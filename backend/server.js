@@ -18,14 +18,14 @@ const db = new sqlite3.Database('./database.sqlite', (err) => {
     else console.log('✅ Conectado a SQLite');
 });
 
-// ==================== RESPALDOS AUTOMÁTICOS ====================
+// ==================== RESPALDOS ====================
 const backupsDir = path.join(__dirname, 'backups');
 if (!fs.existsSync(backupsDir)) {
     fs.mkdirSync(backupsDir);
     console.log('📁 Carpeta de respaldos creada');
 }
 
-// ==================== RESPALDOS EN JSON (para descargar) ====================
+// ==================== RESPALDOS JSON (para descargar) ====================
 const jsonBackupsDir = path.join(__dirname, 'json_backups');
 if (!fs.existsSync(jsonBackupsDir)) {
     fs.mkdirSync(jsonBackupsDir);
@@ -253,7 +253,6 @@ function crearCRUD(tabla, fields) {
         });
     });
 
-    // 👇 NUEVA RUTA: Eliminar TODOS los registros de una tabla (para restaurar)
     app.delete(`/api/${tabla}/todos`, verificarToken, (req, res) => {
         db.run(`DELETE FROM ${tabla}`, function(err) {
             if (err) res.status(500).json({ error: err.message });
@@ -268,7 +267,7 @@ crearCRUD('plantas', ['fecha', 'planta', 'operador_entrante', 'operador_saliente
 crearCRUD('estaciones', ['fecha', 'estacion', 'operador_entrante', 'operador_saliente', 'tension', 'succion', 'potencia', 'descarga', 'grupos', 'usuario']);
 crearCRUD('maniobras', ['fecha', 'hora', 'ubicacion', 'responsable', 'tipo', 'equipo', 'descripcion', 'resultado', 'usuario']);
 
-// ==================== CRUD PRESIONES CORREGIDO ====================
+// ==================== CRUD PRESIONES ====================
 app.get('/api/presiones', verificarToken, (req, res) => {
     db.all('SELECT * FROM presiones ORDER BY id DESC', (err, rows) => {
         if (err) res.status(500).json({ error: err.message });
@@ -302,7 +301,6 @@ app.delete('/api/presiones/:id', verificarToken, (req, res) => {
     });
 });
 
-// 👇 ELIMINAR TODAS LAS PRESIONES (para restaurar)
 app.delete('/api/presiones/todos', verificarToken, (req, res) => {
     db.run('DELETE FROM presiones', function(err) {
         if (err) res.status(500).json({ error: err.message });
@@ -388,17 +386,30 @@ app.get('/api/reporte/exportar', verificarToken, (req, res) => {
 
 // ==================== RESPALDOS ====================
 
-// 📋 LISTAR RESPALDOS (SQLite)
+// 📋 LISTAR RESPALDOS (SQLite y JSON)
 app.get('/api/respaldos', verificarToken, (req, res) => {
     try {
-        const archivos = fs.readdirSync(backupsDir)
+        // Listar respaldos JSON (para descargar)
+        const jsonArchivos = fs.readdirSync(jsonBackupsDir)
+            .filter(f => f.endsWith('.json'))
+            .map(f => {
+                const fecha = f.replace('respaldo_', '').replace('.json', '').replace(/-/g, ':').slice(0, 19);
+                return { nombre: f, fecha: fecha };
+            })
+            .sort((a, b) => b.fecha.localeCompare(a.fecha));
+        
+        // También listar respaldos SQLite (para referencia)
+        const sqliteArchivos = fs.readdirSync(backupsDir)
             .filter(f => f.endsWith('.sqlite'))
             .map(f => {
                 const fecha = f.replace('backup_', '').replace('.sqlite', '').replace(/-/g, ':').slice(0, 19);
                 return { nombre: f, fecha: fecha };
             })
             .sort((a, b) => b.fecha.localeCompare(a.fecha));
-        res.json(archivos);
+        
+        // Combinar: primero JSON, luego SQLite
+        const todos = [...jsonArchivos, ...sqliteArchivos];
+        res.json(todos);
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
@@ -458,28 +469,39 @@ app.post('/api/respaldos', verificarToken, (req, res) => {
 app.get('/api/respaldos/:nombre', verificarToken, (req, res) => {
     try {
         const { nombre } = req.params;
-        // Buscar primero en json_backups, luego en backups
+        console.log('📥 Solicitando descarga de:', nombre);
+        
+        // Buscar en json_backups
         let filePath = path.join(jsonBackupsDir, nombre);
+        console.log('🔍 Buscando en:', filePath);
+        
         if (!fs.existsSync(filePath)) {
-            // Si no es JSON, buscar en backups
+            console.log('❌ Archivo no encontrado en json_backups');
+            // Intentar buscar en backups (solo SQLite)
             filePath = path.join(backupsDir, nombre);
             if (!fs.existsSync(filePath)) {
+                console.log('❌ Archivo no encontrado en backups tampoco');
                 return res.status(404).json({ error: 'Respaldo no encontrado' });
             }
-            // Si es .sqlite, convertirlo a JSON
+            // Si es .sqlite, no permitir descarga
             if (nombre.endsWith('.sqlite')) {
-                return res.status(400).json({ error: 'Formato no soportado para descarga. Use respaldos JSON.' });
+                return res.status(400).json({ error: 'Formato no soportado para descarga. Use respaldos en formato JSON.' });
             }
         }
+        
+        console.log('✅ Enviando archivo:', filePath);
         res.download(filePath, nombre, (err) => {
             if (err) {
-                console.error('Error al descargar:', err);
+                console.error('❌ Error al descargar:', err);
                 if (!res.headersSent) {
-                    res.status(500).json({ error: 'Error al descargar' });
+                    res.status(500).json({ error: 'Error al descargar el archivo' });
                 }
+            } else {
+                console.log('✅ Descarga completada:', nombre);
             }
         });
     } catch (error) {
+        console.error('❌ Error en descarga:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -583,4 +605,5 @@ app.listen(PORT, () => {
     console.log('📝 Credenciales: admin / admin123');
     console.log('📁 Respaldos SQLite: ./backups/');
     console.log('📁 Respaldos JSON: ./json_backups/');
+    console.log('📥 Los respaldos se guardan en formato JSON para poder descargarlos');
 });
