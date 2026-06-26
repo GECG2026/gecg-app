@@ -28,7 +28,6 @@
         .btn-login { width: 100%; padding: 12px; background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); color: white; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; }
         .btn-login:hover { background: linear-gradient(135deg, #2d6a4f 0%, #1a472a 100%); }
         .error-msg { color: red; font-size: 14px; margin-top: 10px; display: none; text-align: center; }
-        .small-text { text-align: center; margin-top: 15px; font-size: 12px; color: #6c757d; display: none; }
         
         .dashboard-container { display: none; }
         .wrapper { display: flex; width: 100%; min-height: 100vh; }
@@ -182,7 +181,6 @@
         .presion-fila input { width: 100%; padding: 6px 10px; border: 1px solid #ddd; border-radius: 5px; }
         
         .whatsapp-checkbox { transform: scale(1.2); margin-right: 5px; cursor: pointer; }
-        .hora-presion-checkbox { transform: scale(1.2); margin-right: 5px; cursor: pointer; }
         
         .config-item { display: flex; align-items: center; gap: 5px; padding: 3px 0; border-bottom: 1px solid #eee; }
         .config-item input { flex: 1; }
@@ -702,6 +700,7 @@ for (let i = 0; i < 24; i++) {
 let whatsappRegistrosActuales = [];
 let whatsappTablaActual = '';
 let whatsappCallback = null;
+let whatsappFiltrados = [];
 
 // ==================== LOGIN ====================
 async function login() {
@@ -751,7 +750,6 @@ function mostrarDashboard() {
     document.getElementById('sidebarUserRol').innerHTML = currentUser.rol + (admin ? ' <span class="badge-admin">ADMIN</span>' : '');
     document.getElementById('usuarioActual').innerHTML = currentUser.nombre + ' (' + currentUser.rol + ')';
     
-    // Mostrar/ocultar menú Administración según rol
     const menuAdmin = document.getElementById('menuAdmin');
     if (menuAdmin) {
         menuAdmin.style.display = admin ? 'flex' : 'none';
@@ -771,25 +769,16 @@ function mostrarDashboard() {
 
 // ==================== CERRAR SESIÓN ====================
 function logout() {
-    // Confirmar cierre de sesión
     if (!confirm('¿Estás seguro de que deseas cerrar sesión?')) {
         return;
     }
-    
-    // Limpiar datos de sesión pero NO la configuración
     currentUser = null;
     localStorage.removeItem('gecg_user');
     localStorage.removeItem('gecg_token');
-    
-    // Mostrar pantalla de login
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('dashboardScreen').style.display = 'none';
-    
-    // Limpiar campos de login
     document.getElementById('username').value = '';
     document.getElementById('password').value = '';
-    
-    console.log('✅ Sesión cerrada correctamente');
 }
 
 function toggleSidebar() {
@@ -1108,10 +1097,12 @@ function cerrarModalWhatsApp() {
     whatsappRegistrosActuales = [];
     whatsappTablaActual = '';
     whatsappCallback = null;
+    whatsappFiltrados = [];
 }
 
 function abrirModalWhatsApp(tabla) {
     whatsappTablaActual = tabla;
+    whatsappFiltrados = [];
     whatsappCallback = function(registros) {
         enviarWhatsAppGenerico(tabla, registros);
         cerrarModalWhatsApp();
@@ -1163,6 +1154,7 @@ async function cargarRegistrosWhatsApp() {
         if (fechaInicio && fechaFin) {
             filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
         }
+        whatsappFiltrados = filtrados;
         
         if (filtrados.length === 0) {
             container.innerHTML = '<p class="text-muted">No hay registros en el rango de fechas</p>';
@@ -1228,7 +1220,7 @@ function enviarWhatsAppSeleccionado() {
     }
     
     const indices = Array.from(checkboxes).map(cb => parseInt(cb.value));
-    const registros = whatsappRegistrosActuales.filter((r, idx) => indices.includes(idx));
+    const registros = whatsappFiltrados.filter((r, idx) => indices.includes(idx));
     
     if (whatsappCallback) {
         whatsappCallback(registros);
@@ -1254,7 +1246,16 @@ function enviarWhatsAppGenerico(tabla, registros) {
             texto = '*GECG - PLANTAS POTABILIZADORAS*\n';
             texto += '━━━━━━━━━━━━━━━━━━\n';
             registros.forEach(r => {
-                texto += `📅 ${r.fecha}\n🏭 ${r.planta}\n👤 Op.E: ${r.operador_entrante || '-'}\n👥 Op.S: ${r.operador_saliente || '-'}\n📊 Producción: ${r.produccion || '-'} L/s\n🧪 pH: ${r.ph || '-'}\n🧪 Cloro: ${r.cloro_residual || '-'} ppm\n━━━━━━━━━━━━━━━━━━\n`;
+                let sustancias = '';
+                if (r.sustancias) {
+                    try {
+                        const suds = typeof r.sustancias === 'string' ? JSON.parse(r.sustancias) : r.sustancias;
+                        sustancias = suds.map(s => `${s.nombre}: ${s.gastos}${s.unidad}`).join(', ');
+                    } catch(e) {}
+                }
+                texto += `📅 ${r.fecha}\n🏭 ${r.planta}\n👤 Op.E: ${r.operador_entrante || '-'}\n👥 Op.S: ${r.operador_saliente || '-'}\n📊 Producción: ${r.produccion || '-'} L/s\n🧪 pH: ${r.ph || '-'}\n🧪 Cloro: ${r.cloro_residual || '-'} ppm\n`;
+                if (sustancias) texto += `🧪 Sustancias: ${sustancias}\n`;
+                texto += `━━━━━━━━━━━━━━━━━━\n`;
             });
             break;
             
@@ -1262,8 +1263,14 @@ function enviarWhatsAppGenerico(tabla, registros) {
             texto = '*GECG - ESTACIONES DE BOMBEO*\n';
             texto += '━━━━━━━━━━━━━━━━━━━━━\n';
             registros.forEach(r => {
-                const grupos = r.grupos ? r.grupos.filter(g => g.seleccionado).map(g => g.nombre).join(', ') : '-';
-                texto += `📅 ${r.fecha}\n🏭 ${r.estacion}\n👤 Op.E: ${r.operador_entrante || '-'}\n👥 Op.S: ${r.operador_saliente || '-'}\n⚡ Tensión: ${r.tension || '-'} KV\n💧 Succión: ${r.succion || '-'} m\n⚙️ Potencia: ${r.potencia || '-'} KW\n📈 Descarga: ${r.descarga || '-'} mca\n🔧 Grupos: ${grupos}\n━━━━━━━━━━━━━━━━━━━━━\n`;
+                let grupos = [];
+                try {
+                    const gs = typeof r.grupos === 'string' ? JSON.parse(r.grupos) : r.grupos;
+                    if (Array.isArray(gs)) {
+                        grupos = gs.filter(g => g.seleccionado).map(g => g.nombre);
+                    }
+                } catch(e) {}
+                texto += `📅 ${r.fecha}\n🏭 ${r.estacion}\n👤 Op.E: ${r.operador_entrante || '-'}\n👥 Op.S: ${r.operador_saliente || '-'}\n⚡ Tensión: ${r.tension || '-'} KV\n💧 Succión: ${r.succion || '-'} m\n⚙️ Potencia: ${r.potencia || '-'} KW\n📈 Descarga: ${r.descarga || '-'} mca\n🔧 Grupos: ${grupos.length > 0 ? grupos.join(', ') : 'Sin grupos operativos'}\n━━━━━━━━━━━━━━━━━━━━━\n`;
             });
             break;
             
@@ -1294,76 +1301,10 @@ function enviarWhatsAppGenerico(tabla, registros) {
     window.open('https://wa.me/?text=' + encodeURIComponent(texto));
 }
 
-// ==================== DISPOSITIVO - WHATSAPP CON HORAS DE DIFERENTES FECHAS ====================
+// ==================== DISPOSITIVO - WHATSAPP ====================
 function abrirModalWhatsAppDispositivo() {
     whatsappTablaActual = 'presiones';
-    whatsappCallback = function(registrosSeleccionados) {
-        // Reconstruir los registros con las horas seleccionadas
-        const indices = registrosSeleccionados.map(r => r._index);
-        const datosEnviar = [];
-        let idx = 0;
-        
-        // Obtener los registros filtrados nuevamente
-        const fechaInicio = document.getElementById('whatsappFechaInicio').value;
-        const fechaFin = document.getElementById('whatsappFechaFin').value;
-        let filtrados = whatsappRegistrosActuales;
-        if (fechaInicio && fechaFin) {
-            filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
-        }
-        
-        filtrados.forEach(r => {
-            let presiones = r.presiones;
-            if (typeof presiones === 'string') {
-                try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
-            }
-            if (Array.isArray(presiones) && presiones.length > 0) {
-                presiones.forEach(p => {
-                    if (indices.includes(idx)) {
-                        datosEnviar.push({
-                            fecha: r.fecha,
-                            operador_entrante: r.operador_entrante,
-                            operador_saliente: r.operador_saliente,
-                            hora: p.hora,
-                            entrada: p.entrada,
-                            salida: p.salida,
-                            usuario: r.usuario
-                        });
-                    }
-                    idx++;
-                });
-            } else {
-                if (indices.includes(idx)) {
-                    datosEnviar.push({
-                        fecha: r.fecha,
-                        operador_entrante: r.operador_entrante,
-                        operador_saliente: r.operador_saliente,
-                        hora: '',
-                        entrada: '',
-                        salida: '',
-                        usuario: r.usuario
-                    });
-                }
-                idx++;
-            }
-        });
-        
-        // Generar el mensaje con los datos seleccionados
-        let texto = '*GECG - DISPOSITIVO - PRESIONES*\n';
-        texto += '━━━━━━━━━━━━━━━━━━━━━\n';
-        datosEnviar.forEach(d => {
-            texto += `📅 Fecha: ${d.fecha}\n`;
-            texto += `👤 Op.E: ${d.operador_entrante || '-'}\n`;
-            texto += `👥 Op.S: ${d.operador_saliente || '-'}\n`;
-            texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
-            texto += `🕐 Hora: ${d.hora || '--:--'}\n`;
-            texto += `   📥 Entrada: ${d.entrada || '-'} PSI\n`;
-            texto += `   📤 Salida: ${d.salida || '-'} PSI\n`;
-            texto += '━━━━━━━━━━━━━━━━━━━━━\n';
-        });
-        texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
-        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
-        cerrarModalWhatsApp();
-    };
+    whatsappFiltrados = [];
     
     const hoy = new Date().toISOString().split('T')[0];
     const ayer = new Date();
@@ -1375,6 +1316,24 @@ function abrirModalWhatsAppDispositivo() {
     
     document.getElementById('whatsappModalTitle').textContent = '📱 Enviar WhatsApp - Dispositivo (Presiones)';
     
+    whatsappCallback = function(registrosSeleccionados) {
+        let texto = '*GECG - DISPOSITIVO - PRESIONES*\n';
+        texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+        registrosSeleccionados.forEach(item => {
+            texto += `📅 Fecha: ${item.fecha}\n`;
+            texto += `👤 Op.E: ${item.operador_entrante || '-'}\n`;
+            texto += `👥 Op.S: ${item.operador_saliente || '-'}\n`;
+            texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
+            texto += `🕐 Hora: ${item.hora || '--:--'}\n`;
+            texto += `   📥 Entrada: ${item.entrada || '-'} PSI\n`;
+            texto += `   📤 Salida: ${item.salida || '-'} PSI\n`;
+            texto += '━━━━━━━━━━━━━━━━━━━━━\n';
+        });
+        texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
+        window.open('https://wa.me/?text=' + encodeURIComponent(texto));
+        cerrarModalWhatsApp();
+    };
+    
     document.getElementById('modalWhatsApp').style.display = 'flex';
     cargarRegistrosWhatsAppDispositivo();
 }
@@ -1385,9 +1344,8 @@ async function cargarRegistrosWhatsAppDispositivo() {
     
     try {
         const registros = await apiRequest('/presiones');
-        whatsappRegistrosActuales = registros || [];
         
-        if (whatsappRegistrosActuales.length === 0) {
+        if (!registros || registros.length === 0) {
             container.innerHTML = '<p class="text-muted">No hay registros de presiones disponibles</p>';
             return;
         }
@@ -1395,13 +1353,39 @@ async function cargarRegistrosWhatsAppDispositivo() {
         const fechaInicio = document.getElementById('whatsappFechaInicio').value;
         const fechaFin = document.getElementById('whatsappFechaFin').value;
         
-        let filtrados = whatsappRegistrosActuales;
+        let filtrados = registros;
         if (fechaInicio && fechaFin) {
             filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
         }
         
-        if (filtrados.length === 0) {
-            container.innerHTML = '<p class="text-muted">No hay registros en el rango de fechas</p>';
+        // Expandir por horas
+        let items = [];
+        filtrados.forEach(r => {
+            let presiones = r.presiones;
+            if (typeof presiones === 'string') {
+                try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
+            }
+            if (Array.isArray(presiones) && presiones.length > 0) {
+                presiones.forEach(p => {
+                    if (p.entrada || p.salida) {
+                        items.push({
+                            fecha: r.fecha,
+                            operador_entrante: r.operador_entrante,
+                            operador_saliente: r.operador_saliente,
+                            hora: p.hora,
+                            entrada: p.entrada,
+                            salida: p.salida,
+                            _index: items.length
+                        });
+                    }
+                });
+            }
+        });
+        
+        whatsappFiltrados = items;
+        
+        if (items.length === 0) {
+            container.innerHTML = '<p class="text-muted">No hay registros de presiones en el rango de fechas</p>';
             return;
         }
         
@@ -1409,7 +1393,7 @@ async function cargarRegistrosWhatsAppDispositivo() {
             <div style="margin-bottom: 10px;">
                 <button class="btn btn-info btn-sm" onclick="seleccionarTodosWhatsApp(true)">✅ Seleccionar todos</button>
                 <button class="btn btn-secondary btn-sm" onclick="seleccionarTodosWhatsApp(false)">❌ Deseleccionar todos</button>
-                <span style="margin-left: 10px; font-size: 12px; color: #666;">Registros: ${filtrados.length}</span>
+                <span style="margin-left: 10px; font-size: 12px; color: #666;">Registros: ${items.length}</span>
             </div>
             <div style="max-height: 300px; overflow-y: auto; border: 1px solid #ddd; border-radius: 5px; padding: 5px;">
                 <table class="historial-table">
@@ -1425,103 +1409,18 @@ async function cargarRegistrosWhatsAppDispositivo() {
                     <tbody>
         `;
         
-        let index = 0;
-        filtrados.forEach((r) => {
-            let presiones = r.presiones;
-            if (typeof presiones === 'string') {
-                try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
-            }
-            
-            if (Array.isArray(presiones) && presiones.length > 0) {
-                presiones.forEach(p => {
-                    html += `<tr>
-                        <td><input type="checkbox" class="whatsapp-checkbox" value="${index}" checked></td>
-                        <td>${r.fecha || '-'}</td>
-                        <td>${p.hora || '--:--'}</td>
-                        <td>${p.entrada || '-'}</td>
-                        <td>${p.salida || '-'}</td>
-                    </tr>`;
-                    index++;
-                });
-            } else {
-                html += `<tr>
-                    <td><input type="checkbox" class="whatsapp-checkbox" value="${index}" checked></td>
-                    <td>${r.fecha || '-'}</td>
-                    <td>--:--</td>
-                    <td>-</td>
-                    <td>-</td>
-                </tr>`;
-                index++;
-            }
+        items.forEach((item, idx) => {
+            html += `<tr>
+                <td><input type="checkbox" class="whatsapp-checkbox" value="${idx}" checked></td>
+                <td>${item.fecha || '-'}</td>
+                <td>${item.hora || '--:--'}</td>
+                <td>${item.entrada || '-'}</td>
+                <td>${item.salida || '-'}</td>
+            </tr>`;
         });
         
         html += '</tbody></table></div>';
         container.innerHTML = html;
-        
-        // Guardar referencia a los registros filtrados para el callback
-        const registrosFiltrados = filtrados;
-        
-        // Actualizar el callback para manejar presiones por hora
-        const originalCallback = whatsappCallback;
-        whatsappCallback = function(registrosSeleccionados) {
-            // Reconstruir los registros con las horas seleccionadas
-            const indices = registrosSeleccionados.map(r => parseInt(r._index) || parseInt(r.value));
-            const datosEnviar = [];
-            let idx = 0;
-            
-            registrosFiltrados.forEach(r => {
-                let presiones = r.presiones;
-                if (typeof presiones === 'string') {
-                    try { presiones = JSON.parse(presiones); } catch(e) { presiones = []; }
-                }
-                if (Array.isArray(presiones) && presiones.length > 0) {
-                    presiones.forEach(p => {
-                        if (indices.includes(idx)) {
-                            datosEnviar.push({
-                                fecha: r.fecha,
-                                operador_entrante: r.operador_entrante,
-                                operador_saliente: r.operador_saliente,
-                                hora: p.hora,
-                                entrada: p.entrada,
-                                salida: p.salida,
-                                usuario: r.usuario
-                            });
-                        }
-                        idx++;
-                    });
-                } else {
-                    if (indices.includes(idx)) {
-                        datosEnviar.push({
-                            fecha: r.fecha,
-                            operador_entrante: r.operador_entrante,
-                            operador_saliente: r.operador_saliente,
-                            hora: '',
-                            entrada: '',
-                            salida: '',
-                            usuario: r.usuario
-                        });
-                    }
-                    idx++;
-                }
-            });
-            
-            // Generar el mensaje con los datos seleccionados
-            let texto = '*GECG - DISPOSITIVO - PRESIONES*\n';
-            texto += '━━━━━━━━━━━━━━━━━━━━━\n';
-            datosEnviar.forEach(d => {
-                texto += `📅 Fecha: ${d.fecha}\n`;
-                texto += `👤 Op.E: ${d.operador_entrante || '-'}\n`;
-                texto += `👥 Op.S: ${d.operador_saliente || '-'}\n`;
-                texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
-                texto += `🕐 Hora: ${d.hora || '--:--'}\n`;
-                texto += `   📥 Entrada: ${d.entrada || '-'} PSI\n`;
-                texto += `   📤 Salida: ${d.salida || '-'} PSI\n`;
-                texto += '━━━━━━━━━━━━━━━━━━━━━\n';
-            });
-            texto += `👤 Generado por: ${currentUser ? currentUser.nombre : 'Usuario'}`;
-            window.open('https://wa.me/?text=' + encodeURIComponent(texto));
-            cerrarModalWhatsApp();
-        };
         
     } catch (error) {
         container.innerHTML = '<p class="text-danger">Error: ' + error.message + '</p>';
@@ -1923,7 +1822,7 @@ async function guardarEstacion() {
     const succion = parseFloat(document.getElementById('succionEst').value) || 0;
     const potencia = parseFloat(document.getElementById('potenciaEst').value) || 0;
     const descarga = parseFloat(document.getElementById('descargaEst').value) || 0;
-    const grupos = gruposData.filter(g => g.seleccionado);
+    const grupos = gruposData.map(g => ({...g}));
     const data = { fecha, estacion, operador_entrante: opE, operador_saliente: opS, tension, succion, potencia, descarga, grupos, usuario: currentUser.nombre };
     try {
         await apiRequest('/estaciones', { method: 'POST', body: JSON.stringify(data) });
@@ -1938,10 +1837,7 @@ async function cargarHistorialEstaciones() {
     try {
         const registros = await apiRequest('/estaciones');
         const tbody = document.getElementById('cuerpoHistorialEstaciones');
-        if (!tbody) {
-            console.error('❌ No se encontró el elemento cuerpoHistorialEstaciones');
-            return;
-        }
+        if (!tbody) return;
         
         if (!registros || registros.length === 0) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center">No hay registros</td></tr>';
@@ -1972,7 +1868,7 @@ async function cargarHistorialEstaciones() {
         }).join('');
         
     } catch (error) {
-        console.error('❌ Error al cargar historial de Estaciones:', error);
+        console.error('Error al cargar historial de Estaciones:', error);
         const tbody = document.getElementById('cuerpoHistorialEstaciones');
         if (tbody) {
             tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger">Error al cargar registros</td></tr>';
@@ -2217,7 +2113,6 @@ async function exportarExcel() {
             });
         }
         
-        // ===== EMBALSES =====
         if (modulo === 'todos' || modulo === 'embalses') {
             if (reporte.embalses && reporte.embalses.length > 0) {
                 const columnas = ['id', 'fecha', 'embalse', 'operador_entrante', 'operador_saliente', 
@@ -2227,7 +2122,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Embalses");
             }
         }
-        // ===== PLANTAS =====
         if (modulo === 'todos' || modulo === 'plantas') {
             if (reporte.plantas && reporte.plantas.length > 0) {
                 const columnas = ['id', 'fecha', 'planta', 'operador_entrante', 'operador_saliente', 
@@ -2237,7 +2131,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Plantas");
             }
         }
-        // ===== ESTACIONES =====
         if (modulo === 'todos' || modulo === 'estaciones') {
             if (reporte.estaciones && reporte.estaciones.length > 0) {
                 const datos = reporte.estaciones.map(function(r) {
@@ -2254,7 +2147,7 @@ async function exportarExcel() {
                         id: r.id || '', fecha: r.fecha || '', estacion: r.estacion || '',
                         operador_entrante: r.operador_entrante || '', operador_saliente: r.operador_saliente || '',
                         tension: r.tension || '', succion: r.succion || '', potencia: r.potencia || '',
-                        descarga: r.Descarga || '', grupos: gruposNombres,
+                        descarga: r.descarga || '', grupos: gruposNombres,
                         usuario: r.usuario || '', created_at: r.created_at || ''
                     };
                 });
@@ -2262,7 +2155,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Estaciones");
             }
         }
-        // ===== DIQUES =====
         if (modulo === 'todos' || modulo === 'diques') {
             if (reporte.diques && reporte.diques.length > 0) {
                 const columnas = ['id', 'fecha', 'hora', 'dique', 'operador_entrante', 'operador_saliente', 
@@ -2272,7 +2164,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Diques");
             }
         }
-        // ===== MANIOBRAS =====
         if (modulo === 'todos' || modulo === 'maniobras') {
             if (reporte.maniobras && reporte.maniobras.length > 0) {
                 const columnas = ['id', 'fecha', 'hora', 'ubicacion', 'responsable', 
@@ -2282,7 +2173,6 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Maniobras");
             }
         }
-        // ===== PRESIONES (DISPOSITIVO) =====
         if (modulo === 'todos' || modulo === 'presiones') {
             if (reporte.presiones && reporte.presiones.length > 0) {
                 const datos = [];
