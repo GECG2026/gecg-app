@@ -199,6 +199,9 @@
         
         .situacion-opciones { display: flex; gap: 15px; flex-wrap: wrap; margin: 10px 0; }
         .situacion-opciones label { font-weight: normal; display: inline-flex; align-items: center; gap: 5px; cursor: pointer; }
+        
+        .respaldos-lista { max-height: 300px; overflow-y: auto; }
+        .respaldos-lista .btn { padding: 2px 8px; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -608,8 +611,31 @@
                     <div class="acciones-left">
                         <button class="btn btn-warning" onclick="crearRespaldo()"><i class="fas fa-save"></i> Crear Respaldo</button>
                         <button class="btn btn-info" onclick="cargarRespaldos()"><i class="fas fa-list"></i> Ver Respaldos</button>
+                        <button class="btn btn-success" onclick="mostrarSelectorRespaldo()"><i class="fas fa-download"></i> Descargar Respaldo</button>
+                        <button class="btn btn-primary" onclick="document.getElementById('fileRespaldoInput').click()"><i class="fas fa-upload"></i> Restaurar desde Archivo</button>
+                        <input type="file" id="fileRespaldoInput" accept=".json" style="display:none;" onchange="restaurarDesdeArchivo(event)">
                     </div>
-                    <div id="listaRespaldos" class="mt-2"></div>
+                    
+                    <!-- Selector de respaldo para descargar/restaurar -->
+                    <div id="selectorRespaldoContainer" style="display:none; margin-top: 10px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
+                        <div class="form-grid">
+                            <div>
+                                <label>📂 Seleccionar Respaldo del Servidor</label>
+                                <select id="selectRespaldo" class="form-control">
+                                    <option value="">Cargando respaldos...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="acciones mt-2">
+                            <button class="btn btn-secondary" onclick="cerrarSelectorRespaldo()">Cancelar</button>
+                            <button class="btn btn-success" onclick="descargarRespaldoSeleccionado()"><i class="fas fa-download"></i> Descargar</button>
+                            <button class="btn btn-danger" onclick="restaurarRespaldoServidor()"><i class="fas fa-upload"></i> Restaurar desde Servidor</button>
+                        </div>
+                    </div>
+                    
+                    <div id="respaldosContainer" class="mt-2">
+                        <div id="listaRespaldos" class="respaldos-lista"></div>
+                    </div>
                 </div>
             </div>
 
@@ -1358,7 +1384,6 @@ async function cargarRegistrosWhatsAppDispositivo() {
             filtrados = filtrados.filter(r => r.fecha >= fechaInicio && r.fecha <= fechaFin);
         }
         
-        // Expandir por horas
         let items = [];
         filtrados.forEach(r => {
             let presiones = r.presiones;
@@ -2332,9 +2357,16 @@ async function cargarRespaldos() {
             return;
         }
 
-        let html = `<table class="historial-table"><thead><tr><th>Fecha</th><th>Archivo</th></tr></thead><tbody>`;
+        let html = `<table class="historial-table"><thead><tr><th>Fecha</th><th>Archivo</th><th>Acciones</th></tr></thead><tbody>`;
         respaldos.forEach(function(r) {
-            html += `<tr><td>${r.fecha}</td><td>${r.nombre}</td></tr>`;
+            html += `<tr>
+                <td>${r.fecha}</td>
+                <td>${r.nombre}</td>
+                <td>
+                    <button class="btn btn-success btn-sm" onclick="descargarRespaldoDirecto('${r.nombre}')"><i class="fas fa-download"></i></button>
+                    <button class="btn btn-danger btn-sm" onclick="restaurarRespaldoDirecto('${r.nombre}')"><i class="fas fa-upload"></i></button>
+                </td>
+            </tr>`;
         });
         html += `</tbody></table>`;
         container.innerHTML = html;
@@ -2342,6 +2374,224 @@ async function cargarRespaldos() {
     } catch (error) {
         document.getElementById('listaRespaldos').innerHTML = '<p class="text-danger">Error: ' + error.message + '</p>';
     }
+}
+
+// ==================== SELECTOR DE RESPALDO ====================
+function mostrarSelectorRespaldo() {
+    const container = document.getElementById('selectorRespaldoContainer');
+    container.style.display = 'block';
+    cargarSelectorRespaldos();
+}
+
+function cerrarSelectorRespaldo() {
+    document.getElementById('selectorRespaldoContainer').style.display = 'none';
+}
+
+async function cargarSelectorRespaldos() {
+    const select = document.getElementById('selectRespaldo');
+    select.innerHTML = '<option value="">Cargando respaldos...</option>';
+    
+    try {
+        const response = await fetch(API_URL + '/respaldos', {
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al cargar respaldos');
+        }
+
+        const respaldos = await response.json();
+        
+        if (!respaldos || respaldos.length === 0) {
+            select.innerHTML = '<option value="">No hay respaldos disponibles</option>';
+            return;
+        }
+
+        select.innerHTML = respaldos.map(function(r) {
+            return `<option value="${r.nombre}">${r.fecha} - ${r.nombre}</option>`;
+        }).join('');
+        
+    } catch (error) {
+        select.innerHTML = '<option value="">Error al cargar respaldos</option>';
+    }
+}
+
+// ==================== DESCARGAR RESPALDO ====================
+async function descargarRespaldoSeleccionado() {
+    const select = document.getElementById('selectRespaldo');
+    const archivo = select.value;
+    
+    if (!archivo) {
+        alert('❌ Seleccione un respaldo para descargar');
+        return;
+    }
+    
+    descargarRespaldoDirecto(archivo);
+}
+
+async function descargarRespaldoDirecto(archivo) {
+    try {
+        // Usar fetch para obtener el archivo como blob
+        const response = await fetch(API_URL + '/respaldos/' + archivo, {
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al descargar el respaldo');
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = archivo;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        
+        alert('✅ Respaldo descargado correctamente');
+        
+    } catch (error) {
+        alert('❌ Error al descargar: ' + error.message);
+    }
+}
+
+// ==================== RESTAURAR RESPALDO ====================
+async function restaurarRespaldoDirecto(archivo) {
+    if (!confirm('⚠️ ¿Estás seguro? Esto REEMPLAZARÁ TODOS los datos actuales con los del respaldo seleccionado.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(API_URL + '/respaldos/' + archivo, {
+            headers: {
+                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Error al obtener el respaldo');
+        }
+
+        const data = await response.json();
+        
+        // Restaurar cada tabla
+        const tablas = ['presiones', 'plantas', 'estaciones', 'diques', 'embalses', 'maniobras'];
+        
+        for (const tabla of tablas) {
+            if (data[tabla] && data[tabla].length > 0) {
+                // Eliminar registros existentes
+                try {
+                    await apiRequest('/' + tabla + '/todos', { method: 'DELETE' });
+                } catch(e) {
+                    console.log('No se pudo eliminar tabla ' + tabla + ': ' + e.message);
+                }
+                
+                // Insertar registros del respaldo
+                for (const registro of data[tabla]) {
+                    try {
+                        await apiRequest('/' + tabla, { 
+                            method: 'POST', 
+                            body: JSON.stringify(registro) 
+                        });
+                    } catch(e) {
+                        console.log('Error al insertar en ' + tabla + ': ' + e.message);
+                    }
+                }
+            }
+        }
+        
+        alert('✅ Respaldo restaurado correctamente');
+        
+        // Recargar todos los datos
+        cargarHistorialPresiones();
+        cargarHistorialPlantas();
+        cargarHistorialEstaciones();
+        cargarHistorialDiques();
+        cargarHistorialEmbalses();
+        cargarHistorialManiobras();
+        
+        cerrarSelectorRespaldo();
+        
+    } catch (error) {
+        alert('❌ Error al restaurar: ' + error.message);
+    }
+}
+
+async function restaurarRespaldoServidor() {
+    const select = document.getElementById('selectRespaldo');
+    const archivo = select.value;
+    
+    if (!archivo) {
+        alert('❌ Seleccione un respaldo para restaurar');
+        return;
+    }
+    
+    await restaurarRespaldoDirecto(archivo);
+}
+
+// ==================== RESTAURAR DESDE ARCHIVO LOCAL ====================
+function restaurarDesdeArchivo(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (!confirm('⚠️ ¿Estás seguro? Esto REEMPLAZARÁ TODOS los datos actuales con los del archivo seleccionado.')) {
+        event.target.value = '';
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = async function(e) {
+        try {
+            const data = JSON.parse(e.target.result);
+            
+            // Restaurar cada tabla
+            const tablas = ['presiones', 'plantas', 'estaciones', 'diques', 'embalses', 'maniobras'];
+            
+            for (const tabla of tablas) {
+                if (data[tabla] && data[tabla].length > 0) {
+                    // Eliminar registros existentes
+                    try {
+                        await apiRequest('/' + tabla + '/todos', { method: 'DELETE' });
+                    } catch(e) {
+                        console.log('No se pudo eliminar tabla ' + tabla + ': ' + e.message);
+                    }
+                    
+                    // Insertar registros del respaldo
+                    for (const registro of data[tabla]) {
+                        try {
+                            await apiRequest('/' + tabla, { 
+                                method: 'POST', 
+                                body: JSON.stringify(registro) 
+                            });
+                        } catch(e) {
+                            console.log('Error al insertar en ' + tabla + ': ' + e.message);
+                        }
+                    }
+                }
+            }
+            
+            alert('✅ Respaldo restaurado correctamente desde el archivo');
+            
+            // Recargar todos los datos
+            cargarHistorialPresiones();
+            cargarHistorialPlantas();
+            cargarHistorialEstaciones();
+            cargarHistorialDiques();
+            cargarHistorialEmbalses();
+            cargarHistorialManiobras();
+            
+        } catch (error) {
+            alert('❌ Error al restaurar desde archivo: ' + error.message);
+        }
+    };
+    reader.readAsText(file);
+    event.target.value = '';
 }
 
 // ==================== INICIAR ====================
