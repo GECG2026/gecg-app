@@ -25,7 +25,6 @@ if (!fs.existsSync(backupsDir)) {
     console.log('📁 Carpeta de respaldos creada');
 }
 
-// ==================== RESPALDOS JSON (para descargar) ====================
 const jsonBackupsDir = path.join(__dirname, 'json_backups');
 if (!fs.existsSync(jsonBackupsDir)) {
     fs.mkdirSync(jsonBackupsDir);
@@ -360,7 +359,7 @@ app.delete('/api/usuarios/:id', verificarToken, (req, res) => {
     });
 });
 
-// ==================== REPORTES ====================
+// ==================== REPORTES CORREGIDO ====================
 app.get('/api/reporte/exportar', verificarToken, (req, res) => {
     const { fecha_inicio, fecha_fin } = req.query;
     const reporte = {};
@@ -375,6 +374,27 @@ app.get('/api/reporte/exportar', verificarToken, (req, res) => {
             params = [fecha_inicio, fecha_fin];
         }
         db.all(sql, params, (err, rows) => {
+            // Procesar filas para corregir nombres de campos en estaciones
+            if (tabla === 'estaciones' && rows) {
+                rows = rows.map(row => {
+                    // Asegurar que el campo descarga exista
+                    if (row.descarga === undefined && row.Descarga !== undefined) {
+                        row.descarga = row.Descarga;
+                    }
+                    // Procesar grupos si es string JSON
+                    if (row.grupos && typeof row.grupos === 'string') {
+                        try {
+                            const grupos = JSON.parse(row.grupos);
+                            row.grupos_texto = grupos.filter(g => g.seleccionado).map(g => g.nombre).join(', ');
+                        } catch(e) {
+                            row.grupos_texto = row.grupos;
+                        }
+                    } else if (row.grupos && Array.isArray(row.grupos)) {
+                        row.grupos_texto = row.grupos.filter(g => g.seleccionado).map(g => g.nombre).join(', ');
+                    }
+                    return row;
+                });
+            }
             reporte[tabla] = rows || [];
             completadas++;
             if (completadas === tablas.length) {
@@ -389,7 +409,6 @@ app.get('/api/reporte/exportar', verificarToken, (req, res) => {
 // 📋 LISTAR RESPALDOS (SQLite y JSON)
 app.get('/api/respaldos', verificarToken, (req, res) => {
     try {
-        // Listar respaldos JSON (para descargar)
         const jsonArchivos = fs.readdirSync(jsonBackupsDir)
             .filter(f => f.endsWith('.json'))
             .map(f => {
@@ -398,7 +417,6 @@ app.get('/api/respaldos', verificarToken, (req, res) => {
             })
             .sort((a, b) => b.fecha.localeCompare(a.fecha));
         
-        // También listar respaldos SQLite (para referencia)
         const sqliteArchivos = fs.readdirSync(backupsDir)
             .filter(f => f.endsWith('.sqlite'))
             .map(f => {
@@ -407,7 +425,6 @@ app.get('/api/respaldos', verificarToken, (req, res) => {
             })
             .sort((a, b) => b.fecha.localeCompare(a.fecha));
         
-        // Combinar: primero JSON, luego SQLite
         const todos = [...jsonArchivos, ...sqliteArchivos];
         res.json(todos);
     } catch (error) {
@@ -418,13 +435,11 @@ app.get('/api/respaldos', verificarToken, (req, res) => {
 // 💾 CREAR RESPALDO (SQLite y JSON)
 app.post('/api/respaldos', verificarToken, (req, res) => {
     try {
-        // Respaldo SQLite
         const dbFile = path.join(__dirname, 'database.sqlite');
         const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
         const backupFile = path.join(backupsDir, `backup_${fecha}.sqlite`);
         fs.copyFileSync(dbFile, backupFile);
         
-        // Respaldo JSON (para descargar y restaurar)
         const jsonFile = path.join(jsonBackupsDir, `respaldo_${fecha}.json`);
         const tablas = ['embalses', 'diques', 'plantas', 'estaciones', 'maniobras', 'presiones'];
         const datos = {};
@@ -446,7 +461,6 @@ app.post('/api/respaldos', verificarToken, (req, res) => {
             });
         });
         
-        // Limpiar respaldos JSON antiguos (mantener últimos 30)
         setTimeout(() => {
             try {
                 const jsonArchivos = fs.readdirSync(jsonBackupsDir).filter(f => f.endsWith('.json')).sort();
@@ -471,19 +485,16 @@ app.get('/api/respaldos/:nombre', verificarToken, (req, res) => {
         const { nombre } = req.params;
         console.log('📥 Solicitando descarga de:', nombre);
         
-        // Buscar en json_backups
         let filePath = path.join(jsonBackupsDir, nombre);
         console.log('🔍 Buscando en:', filePath);
         
         if (!fs.existsSync(filePath)) {
             console.log('❌ Archivo no encontrado en json_backups');
-            // Intentar buscar en backups (solo SQLite)
             filePath = path.join(backupsDir, nombre);
             if (!fs.existsSync(filePath)) {
                 console.log('❌ Archivo no encontrado en backups tampoco');
                 return res.status(404).json({ error: 'Respaldo no encontrado' });
             }
-            // Si es .sqlite, no permitir descarga
             if (nombre.endsWith('.sqlite')) {
                 return res.status(400).json({ error: 'Formato no soportado para descarga. Use respaldos en formato JSON.' });
             }
@@ -506,14 +517,13 @@ app.get('/api/respaldos/:nombre', verificarToken, (req, res) => {
     }
 });
 
-// 📤 RESTAURAR DESDE ARCHIVO LOCAL (requiere archivo JSON)
+// 📤 RESTAURAR DESDE ARCHIVO LOCAL
 app.post('/api/restaurar', verificarToken, (req, res) => {
     try {
         const datos = req.body;
         const tablas = ['embalses', 'diques', 'plantas', 'estaciones', 'maniobras', 'presiones'];
         let procesadas = 0;
         
-        // Verificar que los datos tengan las tablas esperadas
         const tablasFaltantes = tablas.filter(t => !datos[t]);
         if (tablasFaltantes.length > 0) {
             return res.status(400).json({ 
@@ -521,7 +531,6 @@ app.post('/api/restaurar', verificarToken, (req, res) => {
             });
         }
         
-        // Procesar cada tabla
         tablas.forEach(tabla => {
             db.run(`DELETE FROM ${tabla}`, function(err) {
                 if (err) {
@@ -542,7 +551,6 @@ app.post('/api/restaurar', verificarToken, (req, res) => {
                     return;
                 }
                 
-                // Insertar registros de la tabla
                 let insertados = 0;
                 const insertarRegistro = (idx) => {
                     if (idx >= registros.length) {
@@ -573,7 +581,6 @@ app.post('/api/restaurar', verificarToken, (req, res) => {
                     });
                 };
                 
-                // Iniciar inserción
                 insertarRegistro(0);
             });
         });
@@ -605,5 +612,4 @@ app.listen(PORT, () => {
     console.log('📝 Credenciales: admin / admin123');
     console.log('📁 Respaldos SQLite: ./backups/');
     console.log('📁 Respaldos JSON: ./json_backups/');
-    console.log('📥 Los respaldos se guardan en formato JSON para poder descargarlos');
 });

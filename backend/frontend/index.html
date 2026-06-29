@@ -19,7 +19,7 @@
         .login-card { background: rgba(255,255,255,0.98); border-radius: 20px; box-shadow: 0 25px 50px rgba(0,0,0,0.3); width: 100%; max-width: 450px; overflow: hidden; }
         .login-header { background: linear-gradient(135deg, #1a472a 0%, #2d6a4f 100%); color: white; padding: 35px 25px; text-align: center; }
         .logo-container { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px; border: 2px solid rgba(255,255,255,0.5); }
-        .logo-container i { font-size: 40px; color: white; }
+        .logo-container svg { width: 50px; height: 50px; }
         .login-header h2 { font-size: 28px; font-weight: bold; margin: 0; }
         .login-body { padding: 35px 30px; background: white; }
         .input-group { margin-bottom: 20px; position: relative; }
@@ -211,7 +211,25 @@
     <div class="login-wrapper">
         <div class="login-card">
             <div class="login-header">
-                <div class="logo-container"><i class="fas fa-tint"></i></div>
+                <div class="logo-container">
+                    <svg viewBox="0 0 200 200" style="width:60px;height:60px;fill:white;">
+                        <!-- Contorno de Altos Mirandinos -->
+                        <path d="M100,20 L140,40 L160,35 L180,60 L175,90 L155,110 L140,130 L120,140 L100,150 L80,140 L60,130 L45,110 L25,90 L20,60 L40,35 L60,40 Z" 
+                              style="fill:none;stroke:white;stroke-width:3;"/>
+                        <!-- Río Guaire (representación) -->
+                        <path d="M60,70 L80,75 L100,80 L120,75 L140,70" 
+                              style="fill:none;stroke:rgba(255,255,255,0.5);stroke-width:2;"/>
+                        <!-- Puntos de poblaciones -->
+                        <circle cx="100" cy="80" r="4" style="fill:white;"/>
+                        <circle cx="70" cy="70" r="3" style="fill:rgba(255,255,255,0.7);"/>
+                        <circle cx="130" cy="70" r="3" style="fill:rgba(255,255,255,0.7);"/>
+                        <circle cx="80" cy="95" r="2.5" style="fill:rgba(255,255,255,0.5);"/>
+                        <circle cx="120" cy="95" r="2.5" style="fill:rgba(255,255,255,0.5);"/>
+                        <circle cx="100" cy="110" r="2" style="fill:rgba(255,255,255,0.5);"/>
+                        <!-- Texto -->
+                        <text x="100" y="175" text-anchor="middle" style="font-size:10px;fill:white;font-weight:bold;">ALTOS MIRANDINOS</text>
+                    </svg>
+                </div>
                 <h2>GECG</h2>
                 <p>Gestión de Control Guaicaipuro</p>
                 <small>Eje Altos Mirandinos</small>
@@ -616,7 +634,6 @@
                         <input type="file" id="fileRespaldoInput" accept=".json" style="display:none;" onchange="restaurarDesdeArchivo(event)">
                     </div>
                     
-                    <!-- Selector de respaldo para descargar/restaurar -->
                     <div id="selectorRespaldoContainer" style="display:none; margin-top: 10px; padding: 15px; background: #f8f9fa; border-radius: 8px; border: 1px solid #ddd;">
                         <div class="form-grid">
                             <div>
@@ -754,8 +771,9 @@ async function login() {
         }
 
         const data = await response.json();
-        localStorage.setItem('gecg_token', data.token);
-        localStorage.setItem('gecg_user', JSON.stringify(data.user));
+        // Usar sessionStorage en lugar de localStorage para que expire al cerrar el navegador
+        sessionStorage.setItem('gecg_token', data.token);
+        sessionStorage.setItem('gecg_user', JSON.stringify(data.user));
         currentUser = data.user;
         
         mostrarDashboard();
@@ -799,8 +817,8 @@ function logout() {
         return;
     }
     currentUser = null;
-    localStorage.removeItem('gecg_user');
-    localStorage.removeItem('gecg_token');
+    sessionStorage.removeItem('gecg_user');
+    sessionStorage.removeItem('gecg_token');
     document.getElementById('loginScreen').style.display = 'flex';
     document.getElementById('dashboardScreen').style.display = 'none';
     document.getElementById('username').value = '';
@@ -839,7 +857,7 @@ document.querySelectorAll('.menu-item').forEach(function(item) {
 // ==================== API ====================
 async function apiRequest(endpoint, options = {}) {
     const headers = { 'Content-Type': 'application/json' };
-    const token = localStorage.getItem('gecg_token');
+    const token = sessionStorage.getItem('gecg_token');
     if (token) headers['Authorization'] = 'Bearer ' + token;
 
     try {
@@ -879,7 +897,7 @@ async function apiRequest(endpoint, options = {}) {
 // ==================== LISTAS DESPLEGABLES ====================
 function cargarListasDesplegables() {
     fetch(API_URL + '/configuracion', {
-        headers: { 'Authorization': 'Bearer ' + localStorage.getItem('gecg_token') }
+        headers: { 'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token') }
     })
     .then(response => response.json())
     .then(function(config) {
@@ -2138,6 +2156,7 @@ async function exportarExcel() {
             });
         }
         
+        // ===== EMBALSES =====
         if (modulo === 'todos' || modulo === 'embalses') {
             if (reporte.embalses && reporte.embalses.length > 0) {
                 const columnas = ['id', 'fecha', 'embalse', 'operador_entrante', 'operador_saliente', 
@@ -2147,6 +2166,8 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Embalses");
             }
         }
+        
+        // ===== PLANTAS =====
         if (modulo === 'todos' || modulo === 'plantas') {
             if (reporte.plantas && reporte.plantas.length > 0) {
                 const columnas = ['id', 'fecha', 'planta', 'operador_entrante', 'operador_saliente', 
@@ -2156,30 +2177,41 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Plantas");
             }
         }
+        
+        // ===== ESTACIONES CORREGIDO =====
         if (modulo === 'todos' || modulo === 'estaciones') {
             if (reporte.estaciones && reporte.estaciones.length > 0) {
                 const datos = reporte.estaciones.map(function(r) {
-                    let gruposNombres = '';
+                    let gruposTexto = '';
                     try {
                         if (r.grupos) {
                             const grupos = typeof r.grupos === 'string' ? JSON.parse(r.grupos) : r.grupos;
                             if (Array.isArray(grupos)) {
-                                gruposNombres = grupos.filter(function(g) { return g.seleccionado; }).map(function(g) { return g.nombre; }).join(', ');
+                                gruposTexto = grupos.filter(function(g) { return g.seleccionado; }).map(function(g) { return g.nombre; }).join(', ');
                             }
                         }
-                    } catch(e) { gruposNombres = ''; }
+                    } catch(e) { gruposTexto = ''; }
+                    
                     return {
-                        id: r.id || '', fecha: r.fecha || '', estacion: r.estacion || '',
-                        operador_entrante: r.operador_entrante || '', operador_saliente: r.operador_saliente || '',
-                        tension: r.tension || '', succion: r.succion || '', potencia: r.potencia || '',
-                        descarga: r.descarga || '', grupos: gruposNombres,
-                        usuario: r.usuario || '', created_at: r.created_at || ''
+                        'Fecha': r.fecha || '',
+                        'Estación': r.estacion || '',
+                        'Operador Entrante': r.operador_entrante || '',
+                        'Operador Saliente': r.operador_saliente || '',
+                        'Tensión (KV)': r.tension || '',
+                        'Succión (m)': r.succion || '',
+                        'Potencia (KW)': r.potencia || '',
+                        'Descarga (mca)': r.descarga || '',
+                        'Grupos Operativos': gruposTexto || 'Sin grupos',
+                        'Usuario': r.usuario || '',
+                        'Creado': r.created_at || ''
                     };
                 });
                 const ws = XLSX.utils.json_to_sheet(datos);
                 XLSX.utils.book_append_sheet(wb, ws, "Estaciones");
             }
         }
+        
+        // ===== DIQUES =====
         if (modulo === 'todos' || modulo === 'diques') {
             if (reporte.diques && reporte.diques.length > 0) {
                 const columnas = ['id', 'fecha', 'hora', 'dique', 'operador_entrante', 'operador_saliente', 
@@ -2189,6 +2221,8 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Diques");
             }
         }
+        
+        // ===== MANIOBRAS =====
         if (modulo === 'todos' || modulo === 'maniobras') {
             if (reporte.maniobras && reporte.maniobras.length > 0) {
                 const columnas = ['id', 'fecha', 'hora', 'ubicacion', 'responsable', 
@@ -2198,6 +2232,8 @@ async function exportarExcel() {
                 XLSX.utils.book_append_sheet(wb, ws, "Maniobras");
             }
         }
+        
+        // ===== PRESIONES =====
         if (modulo === 'todos' || modulo === 'presiones') {
             if (reporte.presiones && reporte.presiones.length > 0) {
                 const datos = [];
@@ -2232,6 +2268,7 @@ async function exportarExcel() {
                 }
             }
         }
+        
         if (wb.SheetNames.length === 0) {
             alert('❌ No hay datos en el período seleccionado');
             return;
@@ -2320,7 +2357,7 @@ async function crearRespaldo() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+                'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token')
             }
         });
 
@@ -2341,7 +2378,7 @@ async function cargarRespaldos() {
     try {
         const response = await fetch(API_URL + '/respaldos', {
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+                'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token')
             }
         });
 
@@ -2394,7 +2431,7 @@ async function cargarSelectorRespaldos() {
     try {
         const response = await fetch(API_URL + '/respaldos', {
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+                'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token')
             }
         });
 
@@ -2433,15 +2470,19 @@ async function descargarRespaldoSeleccionado() {
 
 async function descargarRespaldoDirecto(archivo) {
     try {
-        // Usar fetch para obtener el archivo como blob
         const response = await fetch(API_URL + '/respaldos/' + archivo, {
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+                'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token')
             }
         });
 
         if (!response.ok) {
-            throw new Error('Error al descargar el respaldo');
+            let errorMsg = 'Error al descargar el respaldo';
+            try {
+                const errorData = await response.json();
+                errorMsg = errorData.error || errorMsg;
+            } catch(e) {}
+            throw new Error(errorMsg);
         }
 
         const blob = await response.blob();
@@ -2470,7 +2511,7 @@ async function restaurarRespaldoDirecto(archivo) {
     try {
         const response = await fetch(API_URL + '/respaldos/' + archivo, {
             headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('gecg_token')
+                'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token')
             }
         });
 
@@ -2480,32 +2521,22 @@ async function restaurarRespaldoDirecto(archivo) {
 
         const data = await response.json();
         
-        // Restaurar cada tabla
-        const tablas = ['presiones', 'plantas', 'estaciones', 'diques', 'embalses', 'maniobras'];
-        
-        for (const tabla of tablas) {
-            if (data[tabla] && data[tabla].length > 0) {
-                // Eliminar registros existentes
-                try {
-                    await apiRequest('/' + tabla + '/todos', { method: 'DELETE' });
-                } catch(e) {
-                    console.log('No se pudo eliminar tabla ' + tabla + ': ' + e.message);
-                }
-                
-                // Insertar registros del respaldo
-                for (const registro of data[tabla]) {
-                    try {
-                        await apiRequest('/' + tabla, { 
-                            method: 'POST', 
-                            body: JSON.stringify(registro) 
-                        });
-                    } catch(e) {
-                        console.log('Error al insertar en ' + tabla + ': ' + e.message);
-                    }
-                }
-            }
+        // Restaurar usando la API de restaurar
+        const restoreResponse = await fetch(API_URL + '/restaurar', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token')
+            },
+            body: JSON.stringify(data)
+        });
+
+        if (!restoreResponse.ok) {
+            const error = await restoreResponse.json();
+            throw new Error(error.error || 'Error al restaurar');
         }
-        
+
+        const result = await restoreResponse.json();
         alert('✅ Respaldo restaurado correctamente');
         
         // Recargar todos los datos
@@ -2550,32 +2581,22 @@ function restaurarDesdeArchivo(event) {
         try {
             const data = JSON.parse(e.target.result);
             
-            // Restaurar cada tabla
-            const tablas = ['presiones', 'plantas', 'estaciones', 'diques', 'embalses', 'maniobras'];
-            
-            for (const tabla of tablas) {
-                if (data[tabla] && data[tabla].length > 0) {
-                    // Eliminar registros existentes
-                    try {
-                        await apiRequest('/' + tabla + '/todos', { method: 'DELETE' });
-                    } catch(e) {
-                        console.log('No se pudo eliminar tabla ' + tabla + ': ' + e.message);
-                    }
-                    
-                    // Insertar registros del respaldo
-                    for (const registro of data[tabla]) {
-                        try {
-                            await apiRequest('/' + tabla, { 
-                                method: 'POST', 
-                                body: JSON.stringify(registro) 
-                            });
-                        } catch(e) {
-                            console.log('Error al insertar en ' + tabla + ': ' + e.message);
-                        }
-                    }
-                }
+            // Restaurar usando la API de restaurar
+            const response = await fetch(API_URL + '/restaurar', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + sessionStorage.getItem('gecg_token')
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Error al restaurar');
             }
-            
+
+            const result = await response.json();
             alert('✅ Respaldo restaurado correctamente desde el archivo');
             
             // Recargar todos los datos
@@ -2594,14 +2615,17 @@ function restaurarDesdeArchivo(event) {
     event.target.value = '';
 }
 
-// ==================== INICIAR ====================
-const storedUser = localStorage.getItem('gecg_user');
-if (storedUser) {
+// ==================== INICIAR CON SESSION STORAGE ====================
+const storedUser = sessionStorage.getItem('gecg_user');
+const storedToken = sessionStorage.getItem('gecg_token');
+
+if (storedUser && storedToken) {
     try {
         currentUser = JSON.parse(storedUser);
         mostrarDashboard();
     } catch (error) {
-        localStorage.removeItem('gecg_user');
+        sessionStorage.removeItem('gecg_user');
+        sessionStorage.removeItem('gecg_token');
     }
 }
 </script>
