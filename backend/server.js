@@ -1,615 +1,709 @@
 const express = require('express');
 const cors = require('cors');
-const sqlite3 = require('sqlite3').verbose();
-const jwt = require('jsonwebtoken');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
+const sqlite3 = require('sqlite3').verbose();
 
-const app = express();
+// ============================================
+// CONFIGURACIÓN
+// ============================================
 const PORT = process.env.PORT || 3000;
-const SECRET_KEY = 'gecg_secret_key_2024';
 
-app.use(cors());
-app.use(express.json());
+// ============================================
+// CONEXIÓN A SQLITE
+// ============================================
+const db = new sqlite3.Database('./database.sqlite');
+db.run('PRAGMA foreign_keys = ON');
 
-// ==================== BASE DE DATOS ====================
-const db = new sqlite3.Database('./database.sqlite', (err) => {
-    if (err) console.error('❌ Error SQLite:', err.message);
-    else console.log('✅ Conectado a SQLite');
-});
-
-// ==================== RESPALDOS ====================
-const backupsDir = path.join(__dirname, 'backups');
-if (!fs.existsSync(backupsDir)) {
-    fs.mkdirSync(backupsDir);
-    console.log('📁 Carpeta de respaldos creada');
-}
-
-const jsonBackupsDir = path.join(__dirname, 'json_backups');
-if (!fs.existsSync(jsonBackupsDir)) {
-    fs.mkdirSync(jsonBackupsDir);
-    console.log('📁 Carpeta de respaldos JSON creada');
-}
-
-function crearRespaldoAutomatico() {
-    try {
-        const dbFile = path.join(__dirname, 'database.sqlite');
-        const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const backupFile = path.join(backupsDir, `backup_${fecha}.sqlite`);
-        fs.copyFileSync(dbFile, backupFile);
-        console.log(`⏰ Respaldo automático: ${path.basename(backupFile)}`);
-        
-        const archivos = fs.readdirSync(backupsDir).filter(f => f.endsWith('.sqlite')).sort();
-        if (archivos.length > 30) {
-            const eliminar = archivos.slice(0, archivos.length - 30);
-            eliminar.forEach(f => {
-                fs.unlinkSync(path.join(backupsDir, f));
-                console.log(`🗑️ Respaldo antiguo eliminado: ${f}`);
-            });
-        }
-    } catch (error) {
-        console.error('Error en respaldo:', error);
-    }
-}
-
-setInterval(crearRespaldoAutomatico, 3600000);
-crearRespaldoAutomatico();
-console.log('✅ Respaldos automáticos activados (cada hora)');
-
-// ==================== CREAR TABLAS ====================
+// ============================================
+// CREAR TABLAS
+// ============================================
 db.serialize(() => {
-    db.run(`CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        nombre_completo TEXT NOT NULL,
-        rol TEXT DEFAULT 'Operador'
-    )`);
+  // Eliminar tablas existentes para recrearlas
+  db.run(`DROP TABLE IF EXISTS presiones`);
+  db.run(`DROP TABLE IF EXISTS plantas`);
+  db.run(`DROP TABLE IF EXISTS estaciones`);
+  db.run(`DROP TABLE IF EXISTS diques`);
+  db.run(`DROP TABLE IF EXISTS embalses`);
+  db.run(`DROP TABLE IF EXISTS maniobras`);
+  db.run(`DROP TABLE IF EXISTS usuarios`);
+  db.run(`DROP TABLE IF EXISTS configuracion`);
+  db.run(`DROP TABLE IF EXISTS respaldos`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS configuracion (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        tipo TEXT NOT NULL,
-        valor TEXT NOT NULL,
-        orden INTEGER DEFAULT 0
-    )`);
+  // Tabla: Presiones (Dispositivo)
+  db.run(`CREATE TABLE presiones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    operador_entrante TEXT NOT NULL,
+    operador_saliente TEXT NOT NULL,
+    presiones TEXT,
+    usuario TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS embalses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        embalse TEXT NOT NULL,
-        operador_entrante TEXT,
-        operador_saliente TEXT,
-        cota_embalse REAL,
-        cota_parada REAL,
-        cota_arranque REAL,
-        diferencia REAL,
-        estado TEXT,
-        observaciones TEXT,
-        usuario TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  // Tabla: Plantas
+  db.run(`CREATE TABLE plantas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    planta TEXT NOT NULL,
+    operador_entrante TEXT NOT NULL,
+    operador_saliente TEXT NOT NULL,
+    turbiedad TEXT,
+    color TEXT,
+    cloro_residual TEXT,
+    ph TEXT,
+    produccion TEXT,
+    sustancias TEXT,
+    usuario TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS plantas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        planta TEXT NOT NULL,
-        operador_entrante TEXT,
-        operador_saliente TEXT,
-        turbiedad REAL,
-        color REAL,
-        cloro_residual REAL,
-        ph REAL,
-        produccion REAL,
-        sustancias TEXT,
-        usuario TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  // Tabla: Estaciones
+  db.run(`CREATE TABLE estaciones (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    estacion TEXT NOT NULL,
+    operador_entrante TEXT NOT NULL,
+    operador_saliente TEXT NOT NULL,
+    tension TEXT,
+    succion TEXT,
+    potencia TEXT,
+    descarga TEXT,
+    grupos TEXT,
+    usuario TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS estaciones (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        estacion TEXT NOT NULL,
-        operador_entrante TEXT,
-        operador_saliente TEXT,
-        tension REAL,
-        succion REAL,
-        potencia REAL,
-        descarga REAL,
-        grupos TEXT,
-        usuario TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  // Tabla: Diques
+  db.run(`CREATE TABLE diques (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    hora TEXT,
+    dique TEXT NOT NULL,
+    operador_entrante TEXT NOT NULL,
+    operador_saliente TEXT NOT NULL,
+    cota TEXT,
+    caudal TEXT,
+    ph TEXT,
+    turbiedad TEXT,
+    situacion TEXT,
+    detalle TEXT,
+    usuario TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS diques (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        hora TEXT,
-        dique TEXT NOT NULL,
-        operador_entrante TEXT,
-        operador_saliente TEXT,
-        cota REAL,
-        caudal REAL,
-        ph REAL,
-        turbiedad REAL,
-        situacion TEXT,
-        detalle TEXT,
-        usuario TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  // Tabla: Embalses
+  db.run(`CREATE TABLE embalses (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    embalse TEXT NOT NULL,
+    operador_entrante TEXT NOT NULL,
+    operador_saliente TEXT NOT NULL,
+    cota_embalse TEXT,
+    cota_parada TEXT,
+    cota_arranque TEXT,
+    diferencia TEXT,
+    estado TEXT,
+    observaciones TEXT,
+    usuario TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS maniobras (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        hora TEXT,
-        ubicacion TEXT,
-        responsable TEXT,
-        tipo TEXT,
-        equipo TEXT,
-        descripcion TEXT,
-        resultado TEXT,
-        usuario TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  // Tabla: Maniobras
+  db.run(`CREATE TABLE maniobras (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    fecha TEXT NOT NULL,
+    hora TEXT,
+    ubicacion TEXT NOT NULL,
+    responsable TEXT NOT NULL,
+    tipo TEXT,
+    equipo TEXT,
+    descripcion TEXT,
+    resultado TEXT,
+    usuario TEXT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    db.run(`CREATE TABLE IF NOT EXISTS presiones (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        fecha TEXT NOT NULL,
-        operador_entrante TEXT,
-        operador_saliente TEXT,
-        presiones TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )`);
+  // Tabla: Usuarios
+  db.run(`CREATE TABLE usuarios (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    nombre_completo TEXT NOT NULL,
+    rol TEXT DEFAULT 'Operador',
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+  )`);
 
-    // Usuario admin
-    db.get('SELECT * FROM usuarios WHERE username = "admin"', (err, row) => {
-        if (!row) {
-            db.run(`INSERT INTO usuarios (username, password, nombre_completo, rol) 
-                    VALUES (?, ?, ?, ?)`, 
-                    ['admin', 'admin123', 'Administrador', 'Administrador']);
-            console.log('✅ Usuario admin creado');
-        }
+  // Tabla: Configuración
+  db.run(`CREATE TABLE configuracion (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tipo TEXT NOT NULL,
+    valor TEXT NOT NULL,
+    UNIQUE(tipo, valor)
+  )`);
+
+  // Tabla: Respaldos
+  db.run(`CREATE TABLE respaldos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nombre TEXT NOT NULL,
+    fecha TEXT NOT NULL,
+    data TEXT NOT NULL
+  )`);
+
+  // Usuario admin por defecto
+  db.run(`INSERT OR IGNORE INTO usuarios (username, password, nombre_completo, rol) 
+          VALUES ('admin', 'admin123', 'Administrador', 'Administrador')`);
+
+  // Configuración por defecto
+  const configDefault = {
+    embalses: ['AGUA FRIA', 'LA MARIPOSA'],
+    operadores: ['Juan Pérez', 'María González', 'Carlos López', 'Ana Rodríguez'],
+    diques: ['AGUA FRIA', 'CAÑAOTE', 'QUEBRADA DE LA VIRGEN', 'E/LA CULEBRA', 'EC.TACATA'],
+    estaciones: ['E/B 1 Panamericano', 'E/B 2 Panamericano', 'E/B 3 Panamericano', 'E/B La Matica'],
+    plantas: ['Planta La Guairita', 'Planta Tuy II', 'Planta Los Teques', 'Planta Mariposa']
+  };
+
+  Object.keys(configDefault).forEach(tipo => {
+    configDefault[tipo].forEach(valor => {
+      db.run(`INSERT OR IGNORE INTO configuracion (tipo, valor) VALUES (?, ?)`, [tipo, valor]);
     });
-
-    db.get('SELECT * FROM usuarios WHERE username = "operador"', (err, row) => {
-        if (!row) {
-            db.run(`INSERT INTO usuarios (username, password, nombre_completo, rol) 
-                    VALUES (?, ?, ?, ?)`, 
-                    ['operador', 'operador123', 'Operador Principal', 'Operador']);
-            console.log('✅ Usuario operador creado');
-        }
-    });
-
-    // Configuración inicial
-    const configInicial = {
-        embalses: ['AGUA FRIA', 'LA MARIPOSA'],
-        operadores: ['Juan Pérez', 'María González', 'Carlos López', 'Ana Rodríguez'],
-        diques: ['AGUA FRIA', 'CAÑAOTE', 'QUEBRADA DE LA VIRGEN', 'E/LA CULEBRA', 'EC.TACATA'],
-        estaciones: ['E/B 1 Panamericano', 'E/B 2 Panamericano', 'E/B 3 Panamericano', 'E/B La Matica'],
-        plantas: ['Planta La Guairita', 'Planta Tuy II', 'Planta Los Teques', 'Planta Mariposa']
-    };
-
-    db.get('SELECT * FROM configuracion LIMIT 1', (err, row) => {
-        if (!row) {
-            const stmt = db.prepare('INSERT INTO configuracion (tipo, valor, orden) VALUES (?, ?, ?)');
-            Object.keys(configInicial).forEach(tipo => {
-                configInicial[tipo].forEach((valor, idx) => {
-                    stmt.run(tipo, valor, idx);
-                });
-            });
-            stmt.finalize();
-            console.log('✅ Configuración inicial creada');
-        }
-    });
+  });
 });
 
-// ==================== LOGIN ====================
+console.log('📊 Base de datos SQLite inicializada');
+
+// ============================================
+// EXPRESS
+// ============================================
+const app = express();
+
+// Middleware
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// ============================================
+// SERVIR ARCHIVOS ESTÁTICOS - RUTA CORREGIDA
+// ============================================
+// Ahora busca la carpeta "frontend" DENTRO de "backend"
+app.use(express.static(path.join(__dirname, 'frontend')));
+
+// ============================================
+// MIDDLEWARE: Autenticación
+// ============================================
+function authMiddleware(req, res, next) {
+  const token = req.headers.authorization;
+  if (!token || !token.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'No autorizado' });
+  }
+  next();
+}
+
+// ============================================
+// RUTAS: LOGIN
+// ============================================
 app.post('/api/login', (req, res) => {
-    const { username, password } = req.body;
-    db.get('SELECT * FROM usuarios WHERE username = ?', [username], (err, user) => {
-        if (err || !user) return res.status(401).json({ error: 'Usuario no encontrado' });
-        if (user.password !== password) return res.status(401).json({ error: 'Contraseña incorrecta' });
-        const token = jwt.sign({ id: user.id, username: user.username, rol: user.rol }, SECRET_KEY, { expiresIn: '24h' });
-        res.json({ token, user: { id: user.id, username: user.username, nombre: user.nombre_completo, rol: user.rol } });
-    });
-});
-
-function verificarToken(req, res, next) {
-    const authHeader = req.headers['authorization'];
-    const token = authHeader && authHeader.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'Token requerido' });
-    try {
-        req.user = jwt.verify(token, SECRET_KEY);
-        next();
-    } catch (err) {
-        return res.status(403).json({ error: 'Token inválido' });
-    }
-}
-
-// ==================== CRUD GENÉRICO ====================
-function crearCRUD(tabla, fields) {
-    app.get(`/api/${tabla}`, verificarToken, (req, res) => {
-        db.all(`SELECT * FROM ${tabla} ORDER BY id DESC`, (err, rows) => {
-            if (err) res.status(500).json({ error: err.message });
-            else res.json(rows);
-        });
-    });
-
-    app.post(`/api/${tabla}`, verificarToken, (req, res) => {
-        const keys = Object.keys(req.body).filter(k => fields.includes(k));
-        const placeholders = keys.map(() => '?').join(',');
-        const values = keys.map(k => req.body[k]);
-        const sql = `INSERT INTO ${tabla} (${keys.join(',')}) VALUES (${placeholders})`;
-        db.run(sql, values, function(err) {
-            if (err) { res.status(500).json({ error: err.message }); }
-            else { res.json({ id: this.lastID }); }
-        });
-    });
-
-    app.delete(`/api/${tabla}/:id`, verificarToken, (req, res) => {
-        db.run(`DELETE FROM ${tabla} WHERE id = ?`, [req.params.id], function(err) {
-            if (err) res.status(500).json({ error: err.message });
-            else res.json({ deleted: this.changes });
-        });
-    });
-
-    app.delete(`/api/${tabla}/todos`, verificarToken, (req, res) => {
-        db.run(`DELETE FROM ${tabla}`, function(err) {
-            if (err) res.status(500).json({ error: err.message });
-            else res.json({ deleted: this.changes });
-        });
-    });
-}
-
-crearCRUD('diques', ['fecha', 'hora', 'dique', 'operador_entrante', 'operador_saliente', 'cota', 'caudal', 'ph', 'turbiedad', 'situacion', 'detalle', 'usuario']);
-crearCRUD('embalses', ['fecha', 'embalse', 'operador_entrante', 'operador_saliente', 'cota_embalse', 'cota_parada', 'cota_arranque', 'diferencia', 'estado', 'observaciones', 'usuario']);
-crearCRUD('plantas', ['fecha', 'planta', 'operador_entrante', 'operador_saliente', 'turbiedad', 'color', 'cloro_residual', 'ph', 'produccion', 'sustancias', 'usuario']);
-crearCRUD('estaciones', ['fecha', 'estacion', 'operador_entrante', 'operador_saliente', 'tension', 'succion', 'potencia', 'descarga', 'grupos', 'usuario']);
-crearCRUD('maniobras', ['fecha', 'hora', 'ubicacion', 'responsable', 'tipo', 'equipo', 'descripcion', 'resultado', 'usuario']);
-
-// ==================== CRUD PRESIONES ====================
-app.get('/api/presiones', verificarToken, (req, res) => {
-    db.all('SELECT * FROM presiones ORDER BY id DESC', (err, rows) => {
-        if (err) res.status(500).json({ error: err.message });
-        else res.json(rows);
-    });
-});
-
-app.post('/api/presiones', verificarToken, (req, res) => {
-    const { fecha, operador_entrante, operador_saliente, presiones } = req.body;
-    let presionesJson = '[]';
-    if (Array.isArray(presiones) && presiones.length > 0) {
-        presionesJson = JSON.stringify(presiones);
-    }
-    const sql = `INSERT INTO presiones (fecha, operador_entrante, operador_saliente, presiones) 
-                 VALUES (?, ?, ?, ?)`;
-    db.run(sql, [fecha, operador_entrante, operador_saliente, presionesJson], function(err) {
-        if (err) {
-            console.error('❌ Error al guardar presiones:', err);
-            res.status(500).json({ error: err.message });
-        } else {
-            console.log('✅ Presiones guardadas con ID:', this.lastID);
-            res.json({ id: this.lastID });
+  const { username, password } = req.body;
+  db.get(
+    'SELECT id, username, nombre_completo, rol FROM usuarios WHERE username = ? AND password = ?',
+    [username, password],
+    (err, row) => {
+      if (err) return res.status(500).json({ error: err.message });
+      if (!row) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+      res.json({ 
+        token: 'token_' + Date.now(),
+        user: { 
+          id: row.id, 
+          username: row.username, 
+          nombre: row.nombre_completo, 
+          rol: row.rol 
         }
-    });
-});
-
-app.delete('/api/presiones/:id', verificarToken, (req, res) => {
-    db.run('DELETE FROM presiones WHERE id = ?', [req.params.id], function(err) {
-        if (err) res.status(500).json({ error: err.message });
-        else res.json({ deleted: this.changes });
-    });
-});
-
-app.delete('/api/presiones/todos', verificarToken, (req, res) => {
-    db.run('DELETE FROM presiones', function(err) {
-        if (err) res.status(500).json({ error: err.message });
-        else res.json({ deleted: this.changes });
-    });
-});
-
-// ==================== CONFIGURACIÓN ====================
-app.get('/api/configuracion', verificarToken, (req, res) => {
-    db.all('SELECT * FROM configuracion ORDER BY tipo, orden', (err, rows) => {
-        if (err) res.status(500).json({ error: err.message });
-        else {
-            const config = {};
-            rows.forEach(row => {
-                if (!config[row.tipo]) config[row.tipo] = [];
-                config[row.tipo].push(row.valor);
-            });
-            res.json(config);
-        }
-    });
-});
-
-app.post('/api/configuracion', verificarToken, (req, res) => {
-    const { tipo, valores } = req.body;
-    if (!tipo || !Array.isArray(valores)) return res.status(400).json({ error: 'Datos inválidos' });
-    db.run('DELETE FROM configuracion WHERE tipo = ?', [tipo], function(err) {
-        if (err) return res.status(500).json({ error: err.message });
-        const stmt = db.prepare('INSERT INTO configuracion (tipo, valor, orden) VALUES (?, ?, ?)');
-        valores.forEach((valor, idx) => { stmt.run(tipo, valor, idx); });
-        stmt.finalize();
-        res.json({ success: true });
-    });
-});
-
-// ==================== USUARIOS ====================
-app.get('/api/usuarios', verificarToken, (req, res) => {
-    db.all('SELECT id, username, nombre_completo, rol FROM usuarios', (err, rows) => {
-        if (err) res.status(500).json({ error: err.message });
-        else res.json(rows);
-    });
-});
-
-app.post('/api/usuarios', verificarToken, (req, res) => {
-    const { username, password, nombre_completo, rol } = req.body;
-    db.run('INSERT INTO usuarios (username, password, nombre_completo, rol) VALUES (?, ?, ?, ?)',
-        [username, password, nombre_completo, rol || 'Operador'],
-        function(err) {
-            if (err) res.status(500).json({ error: err.message });
-            else res.json({ id: this.lastID });
-        });
-});
-
-app.delete('/api/usuarios/:id', verificarToken, (req, res) => {
-    db.run('DELETE FROM usuarios WHERE id = ?', [req.params.id], function(err) {
-        if (err) res.status(500).json({ error: err.message });
-        else res.json({ deleted: this.changes });
-    });
-});
-
-// ==================== REPORTES CORREGIDO ====================
-app.get('/api/reporte/exportar', verificarToken, (req, res) => {
-    const { fecha_inicio, fecha_fin } = req.query;
-    const reporte = {};
-    const tablas = ['embalses', 'diques', 'plantas', 'estaciones', 'maniobras', 'presiones'];
-    let completadas = 0;
-
-    tablas.forEach(tabla => {
-        let sql = `SELECT * FROM ${tabla}`;
-        let params = [];
-        if (fecha_inicio && fecha_fin) {
-            sql += ` WHERE fecha BETWEEN ? AND ?`;
-            params = [fecha_inicio, fecha_fin];
-        }
-        db.all(sql, params, (err, rows) => {
-            // Procesar filas para corregir nombres de campos en estaciones
-            if (tabla === 'estaciones' && rows) {
-                rows = rows.map(row => {
-                    // Asegurar que el campo descarga exista
-                    if (row.descarga === undefined && row.Descarga !== undefined) {
-                        row.descarga = row.Descarga;
-                    }
-                    // Procesar grupos si es string JSON
-                    if (row.grupos && typeof row.grupos === 'string') {
-                        try {
-                            const grupos = JSON.parse(row.grupos);
-                            row.grupos_texto = grupos.filter(g => g.seleccionado).map(g => g.nombre).join(', ');
-                        } catch(e) {
-                            row.grupos_texto = row.grupos;
-                        }
-                    } else if (row.grupos && Array.isArray(row.grupos)) {
-                        row.grupos_texto = row.grupos.filter(g => g.seleccionado).map(g => g.nombre).join(', ');
-                    }
-                    return row;
-                });
-            }
-            reporte[tabla] = rows || [];
-            completadas++;
-            if (completadas === tablas.length) {
-                res.json(reporte);
-            }
-        });
-    });
-});
-
-// ==================== RESPALDOS ====================
-
-// 📋 LISTAR RESPALDOS (SQLite y JSON)
-app.get('/api/respaldos', verificarToken, (req, res) => {
-    try {
-        const jsonArchivos = fs.readdirSync(jsonBackupsDir)
-            .filter(f => f.endsWith('.json'))
-            .map(f => {
-                const fecha = f.replace('respaldo_', '').replace('.json', '').replace(/-/g, ':').slice(0, 19);
-                return { nombre: f, fecha: fecha };
-            })
-            .sort((a, b) => b.fecha.localeCompare(a.fecha));
-        
-        const sqliteArchivos = fs.readdirSync(backupsDir)
-            .filter(f => f.endsWith('.sqlite'))
-            .map(f => {
-                const fecha = f.replace('backup_', '').replace('.sqlite', '').replace(/-/g, ':').slice(0, 19);
-                return { nombre: f, fecha: fecha };
-            })
-            .sort((a, b) => b.fecha.localeCompare(a.fecha));
-        
-        const todos = [...jsonArchivos, ...sqliteArchivos];
-        res.json(todos);
-    } catch (error) {
-        res.status(500).json({ error: error.message });
+      });
     }
+  );
 });
 
-// 💾 CREAR RESPALDO (SQLite y JSON)
-app.post('/api/respaldos', verificarToken, (req, res) => {
-    try {
-        const dbFile = path.join(__dirname, 'database.sqlite');
-        const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-        const backupFile = path.join(backupsDir, `backup_${fecha}.sqlite`);
-        fs.copyFileSync(dbFile, backupFile);
+// ============================================
+// RUTAS: CONFIGURACIÓN
+// ============================================
+app.get('/api/configuracion', (req, res) => {
+  db.all('SELECT tipo, valor FROM configuracion', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    const config = { 
+      embalses: [], 
+      operadores: [], 
+      diques: [], 
+      estaciones: [], 
+      plantas: [] 
+    };
+    rows.forEach(row => {
+      if (config[row.tipo]) config[row.tipo].push(row.valor);
+    });
+    res.json(config);
+  });
+});
+
+app.post('/api/configuracion', authMiddleware, (req, res) => {
+  const { tipo, valores } = req.body;
+  if (!tipo || !valores || !Array.isArray(valores)) {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+
+  db.run('DELETE FROM configuracion WHERE tipo = ?', [tipo], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+
+    let inserted = 0;
+    valores.forEach(valor => {
+      if (valor.trim()) {
+        db.run('INSERT INTO configuracion (tipo, valor) VALUES (?, ?)', [tipo, valor.trim()], function(err) {
+          if (!err) inserted++;
+        });
+      }
+    });
+
+    setTimeout(() => {
+      res.json({ mensaje: `Configuración guardada: ${inserted} elementos` });
+    }, 100);
+  });
+});
+
+// ============================================
+// RUTAS: USUARIOS
+// ============================================
+app.get('/api/usuarios', authMiddleware, (req, res) => {
+  db.all('SELECT id, username, nombre_completo, rol FROM usuarios', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/usuarios', authMiddleware, (req, res) => {
+  const { username, password, nombre_completo, rol } = req.body;
+  db.run(
+    'INSERT INTO usuarios (username, password, nombre_completo, rol) VALUES (?, ?, ?, ?)',
+    [username, password, nombre_completo, rol || 'Operador'],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID, mensaje: 'Usuario creado' });
+    }
+  );
+});
+
+app.delete('/api/usuarios/:id', authMiddleware, (req, res) => {
+  db.run('DELETE FROM usuarios WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ mensaje: 'Usuario eliminado' });
+  });
+});
+
+// ============================================
+// RUTAS: EMBALSES
+// ============================================
+app.get('/api/embalses', (req, res) => {
+  db.all('SELECT * FROM embalses ORDER BY fecha DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/embalses', authMiddleware, (req, res) => {
+  const { 
+    fecha, embalse, operador_entrante, operador_saliente, 
+    cota_embalse, cota_parada, cota_arranque, 
+    diferencia, estado, observaciones, usuario 
+  } = req.body;
+  
+  db.run(
+    `INSERT INTO embalses (
+      fecha, embalse, operador_entrante, operador_saliente, 
+      cota_embalse, cota_parada, cota_arranque, 
+      diferencia, estado, observaciones, usuario
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      fecha, embalse, operador_entrante, operador_saliente, 
+      cota_embalse, cota_parada, cota_arranque, 
+      diferencia, estado, observaciones, usuario || 'admin'
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID, mensaje: 'Registro guardado' });
+    }
+  );
+});
+
+app.delete('/api/embalses/:id', authMiddleware, (req, res) => {
+  db.run('DELETE FROM embalses WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ mensaje: 'Registro eliminado' });
+  });
+});
+
+// ============================================
+// RUTAS: PLANTAS
+// ============================================
+app.get('/api/plantas', (req, res) => {
+  db.all('SELECT * FROM plantas ORDER BY fecha DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/plantas', authMiddleware, (req, res) => {
+  const { 
+    fecha, planta, operador_entrante, operador_saliente, 
+    turbiedad, color, cloro_residual, ph, produccion, 
+    sustancias, usuario 
+  } = req.body;
+  
+  db.run(
+    `INSERT INTO plantas (
+      fecha, planta, operador_entrante, operador_saliente, 
+      turbiedad, color, cloro_residual, ph, produccion, 
+      sustancias, usuario
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      fecha, planta, operador_entrante, operador_saliente, 
+      turbiedad, color, cloro_residual, ph, produccion, 
+      JSON.stringify(sustancias), usuario || 'admin'
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID, mensaje: 'Registro guardado' });
+    }
+  );
+});
+
+app.delete('/api/plantas/:id', authMiddleware, (req, res) => {
+  db.run('DELETE FROM plantas WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ mensaje: 'Registro eliminado' });
+  });
+});
+
+// ============================================
+// RUTAS: ESTACIONES
+// ============================================
+app.get('/api/estaciones', (req, res) => {
+  db.all('SELECT * FROM estaciones ORDER BY fecha DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/estaciones', authMiddleware, (req, res) => {
+  const { 
+    fecha, estacion, operador_entrante, operador_saliente, 
+    tension, succion, potencia, descarga, grupos, usuario 
+  } = req.body;
+  
+  db.run(
+    `INSERT INTO estaciones (
+      fecha, estacion, operador_entrante, operador_saliente, 
+      tension, succion, potencia, descarga, grupos, usuario
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      fecha, estacion, operador_entrante, operador_saliente, 
+      tension, succion, potencia, descarga, 
+      JSON.stringify(grupos), usuario || 'admin'
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID, mensaje: 'Registro guardado' });
+    }
+  );
+});
+
+app.delete('/api/estaciones/:id', authMiddleware, (req, res) => {
+  db.run('DELETE FROM estaciones WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ mensaje: 'Registro eliminado' });
+  });
+});
+
+// ============================================
+// RUTAS: DIQUES
+// ============================================
+app.get('/api/diques', (req, res) => {
+  db.all('SELECT * FROM diques ORDER BY fecha DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/diques', authMiddleware, (req, res) => {
+  const { 
+    fecha, hora, dique, operador_entrante, operador_saliente, 
+    cota, caudal, ph, turbiedad, situacion, detalle, usuario 
+  } = req.body;
+  
+  db.run(
+    `INSERT INTO diques (
+      fecha, hora, dique, operador_entrante, operador_saliente, 
+      cota, caudal, ph, turbiedad, situacion, detalle, usuario
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      fecha, hora, dique, operador_entrante, operador_saliente, 
+      cota, caudal, ph, turbiedad, situacion, detalle, usuario || 'admin'
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID, mensaje: 'Registro guardado' });
+    }
+  );
+});
+
+app.delete('/api/diques/:id', authMiddleware, (req, res) => {
+  db.run('DELETE FROM diques WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ mensaje: 'Registro eliminado' });
+  });
+});
+
+// ============================================
+// RUTAS: MANIOBRAS
+// ============================================
+app.get('/api/maniobras', (req, res) => {
+  db.all('SELECT * FROM maniobras ORDER BY fecha DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/maniobras', authMiddleware, (req, res) => {
+  const { 
+    fecha, hora, ubicacion, responsable, 
+    tipo, equipo, descripcion, resultado, usuario 
+  } = req.body;
+  
+  db.run(
+    `INSERT INTO maniobras (
+      fecha, hora, ubicacion, responsable, 
+      tipo, equipo, descripcion, resultado, usuario
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      fecha, hora, ubicacion, responsable, 
+      tipo, equipo, descripcion, resultado, usuario || 'admin'
+    ],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID, mensaje: 'Registro guardado' });
+    }
+  );
+});
+
+app.delete('/api/maniobras/:id', authMiddleware, (req, res) => {
+  db.run('DELETE FROM maniobras WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ mensaje: 'Registro eliminado' });
+  });
+});
+
+// ============================================
+// RUTAS: PRESIONES (Dispositivo)
+// ============================================
+app.get('/api/presiones', (req, res) => {
+  db.all('SELECT * FROM presiones ORDER BY fecha DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.post('/api/presiones', authMiddleware, (req, res) => {
+  const { fecha, operador_entrante, operador_saliente, presiones, usuario } = req.body;
+  db.run(
+    'INSERT INTO presiones (fecha, operador_entrante, operador_saliente, presiones, usuario) VALUES (?, ?, ?, ?, ?)',
+    [fecha, operador_entrante, operador_saliente, JSON.stringify(presiones), usuario || 'admin'],
+    function(err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.status(201).json({ id: this.lastID, mensaje: 'Presiones guardadas' });
+    }
+  );
+});
+
+app.delete('/api/presiones/:id', authMiddleware, (req, res) => {
+  db.run('DELETE FROM presiones WHERE id = ?', [req.params.id], function(err) {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json({ mensaje: 'Registro eliminado' });
+  });
+});
+
+// ============================================
+// RUTA: REPORTE EXCEL
+// ============================================
+app.get('/api/reporte/exportar', (req, res) => {
+  const { fecha_inicio, fecha_fin } = req.query;
+  
+  const query = (tabla) => {
+    return new Promise((resolve, reject) => {
+      let sql = `SELECT * FROM ${tabla}`;
+      const params = [];
+      if (fecha_inicio && fecha_fin) {
+        sql += ` WHERE fecha >= ? AND fecha <= ? ORDER BY fecha DESC`;
+        params.push(fecha_inicio, fecha_fin);
+      } else {
+        sql += ` ORDER BY fecha DESC LIMIT 500`;
+      }
+      db.all(sql, params, (err, rows) => {
+        if (err) reject(err);
+        else resolve(rows);
+      });
+    });
+  };
+
+  Promise.all([
+    query('embalses'),
+    query('plantas'),
+    query('estaciones'),
+    query('diques'),
+    query('maniobras'),
+    query('presiones')
+  ])
+  .then(([embalses, plantas, estaciones, diques, maniobras, presiones]) => {
+    res.json({ embalses, plantas, estaciones, diques, maniobras, presiones });
+  })
+  .catch(err => {
+    res.status(500).json({ error: err.message });
+  });
+});
+
+// ============================================
+// RUTAS: RESPALDOS
+// ============================================
+app.post('/api/respaldos', authMiddleware, (req, res) => {
+  const fecha = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const nombre = `respaldo_${fecha}.json`;
+  
+  const tablas = ['presiones', 'plantas', 'estaciones', 'diques', 'embalses', 'maniobras', 'usuarios', 'configuracion'];
+  
+  const data = {};
+  let pendientes = tablas.length;
+  let error = null;
+
+  tablas.forEach(tabla => {
+    db.all(`SELECT * FROM ${tabla}`, (err, rows) => {
+      if (err) {
+        error = err;
+        return res.status(500).json({ error: err.message });
+      }
+      data[tabla] = rows;
+      pendientes--;
+      if (pendientes === 0) {
+        const jsonData = JSON.stringify(data, null, 2);
         
-        const jsonFile = path.join(jsonBackupsDir, `respaldo_${fecha}.json`);
-        const tablas = ['embalses', 'diques', 'plantas', 'estaciones', 'maniobras', 'presiones'];
-        const datos = {};
-        let completadas = 0;
+        db.run(
+          'INSERT INTO respaldos (nombre, fecha, data) VALUES (?, ?, ?)',
+          [nombre, fecha, jsonData],
+          function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ mensaje: 'Respaldo creado', nombre, fecha });
+          }
+        );
+      }
+    });
+  });
+});
+
+app.get('/api/respaldos', authMiddleware, (req, res) => {
+  db.all('SELECT id, nombre, fecha FROM respaldos ORDER BY fecha DESC', (err, rows) => {
+    if (err) return res.status(500).json({ error: err.message });
+    res.json(rows);
+  });
+});
+
+app.get('/api/respaldos/:nombre', authMiddleware, (req, res) => {
+  db.get('SELECT data FROM respaldos WHERE nombre = ?', [req.params.nombre], (err, row) => {
+    if (err) return res.status(500).json({ error: err.message });
+    if (!row) return res.status(404).json({ error: 'Respaldo no encontrado' });
+    
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${req.params.nombre}"`);
+    res.send(row.data);
+  });
+});
+
+app.post('/api/restaurar', authMiddleware, (req, res) => {
+  const data = req.body;
+  if (!data || typeof data !== 'object') {
+    return res.status(400).json({ error: 'Datos inválidos' });
+  }
+
+  const tablas = ['presiones', 'plantas', 'estaciones', 'diques', 'embalses', 'maniobras'];
+  let pendientes = tablas.length;
+  let error = null;
+
+  tablas.forEach(tabla => {
+    if (data[tabla] && Array.isArray(data[tabla])) {
+      db.run(`DELETE FROM ${tabla}`, function(err) {
+        if (err) { error = err; return; }
         
-        tablas.forEach(tabla => {
-            db.all(`SELECT * FROM ${tabla}`, (err, rows) => {
-                if (err) {
-                    datos[tabla] = [];
-                } else {
-                    datos[tabla] = rows || [];
-                }
-                completadas++;
-                if (completadas === tablas.length) {
-                    fs.writeFileSync(jsonFile, JSON.stringify(datos, null, 2));
-                    console.log(`✅ Respaldo JSON creado: ${path.basename(jsonFile)}`);
-                    res.json({ message: '✅ Respaldo creado', archivo: path.basename(jsonFile) });
-                }
-            });
+        data[tabla].forEach(row => {
+          const columns = Object.keys(row).filter(k => k !== 'id');
+          const placeholders = columns.map(() => '?').join(',');
+          const values = columns.map(k => row[k]);
+          
+          db.run(
+            `INSERT INTO ${tabla} (${columns.join(',')}) VALUES (${placeholders})`,
+            values,
+            function(err) {
+              if (err) error = err;
+            }
+          );
         });
         
-        setTimeout(() => {
-            try {
-                const jsonArchivos = fs.readdirSync(jsonBackupsDir).filter(f => f.endsWith('.json')).sort();
-                if (jsonArchivos.length > 30) {
-                    const eliminar = jsonArchivos.slice(0, jsonArchivos.length - 30);
-                    eliminar.forEach(f => {
-                        fs.unlinkSync(path.join(jsonBackupsDir, f));
-                        console.log(`🗑️ Respaldo JSON antiguo eliminado: ${f}`);
-                    });
-                }
-            } catch(e) {}
-        }, 1000);
-        
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// 📥 DESCARGAR RESPALDO (JSON)
-app.get('/api/respaldos/:nombre', verificarToken, (req, res) => {
-    try {
-        const { nombre } = req.params;
-        console.log('📥 Solicitando descarga de:', nombre);
-        
-        let filePath = path.join(jsonBackupsDir, nombre);
-        console.log('🔍 Buscando en:', filePath);
-        
-        if (!fs.existsSync(filePath)) {
-            console.log('❌ Archivo no encontrado en json_backups');
-            filePath = path.join(backupsDir, nombre);
-            if (!fs.existsSync(filePath)) {
-                console.log('❌ Archivo no encontrado en backups tampoco');
-                return res.status(404).json({ error: 'Respaldo no encontrado' });
-            }
-            if (nombre.endsWith('.sqlite')) {
-                return res.status(400).json({ error: 'Formato no soportado para descarga. Use respaldos en formato JSON.' });
-            }
+        pendientes--;
+        if (pendientes === 0) {
+          if (error) return res.status(500).json({ error: error.message });
+          res.json({ mensaje: 'Restauración completada' });
         }
-        
-        console.log('✅ Enviando archivo:', filePath);
-        res.download(filePath, nombre, (err) => {
-            if (err) {
-                console.error('❌ Error al descargar:', err);
-                if (!res.headersSent) {
-                    res.status(500).json({ error: 'Error al descargar el archivo' });
-                }
-            } else {
-                console.log('✅ Descarga completada:', nombre);
-            }
-        });
-    } catch (error) {
-        console.error('❌ Error en descarga:', error);
-        res.status(500).json({ error: error.message });
+      });
+    } else {
+      pendientes--;
+      if (pendientes === 0) {
+        if (error) return res.status(500).json({ error: error.message });
+        res.json({ mensaje: 'Restauración completada' });
+      }
     }
+  });
 });
 
-// 📤 RESTAURAR DESDE ARCHIVO LOCAL
-app.post('/api/restaurar', verificarToken, (req, res) => {
-    try {
-        const datos = req.body;
-        const tablas = ['embalses', 'diques', 'plantas', 'estaciones', 'maniobras', 'presiones'];
-        let procesadas = 0;
-        
-        const tablasFaltantes = tablas.filter(t => !datos[t]);
-        if (tablasFaltantes.length > 0) {
-            return res.status(400).json({ 
-                error: 'Formato inválido. Faltan tablas: ' + tablasFaltantes.join(', ') 
-            });
-        }
-        
-        tablas.forEach(tabla => {
-            db.run(`DELETE FROM ${tabla}`, function(err) {
-                if (err) {
-                    console.error(`Error al limpiar ${tabla}:`, err);
-                    procesadas++;
-                    if (procesadas === tablas.length) {
-                        res.json({ success: true, procesadas: procesadas });
-                    }
-                    return;
-                }
-                
-                const registros = datos[tabla] || [];
-                if (registros.length === 0) {
-                    procesadas++;
-                    if (procesadas === tablas.length) {
-                        res.json({ success: true, procesadas: procesadas });
-                    }
-                    return;
-                }
-                
-                let insertados = 0;
-                const insertarRegistro = (idx) => {
-                    if (idx >= registros.length) {
-                        procesadas++;
-                        if (procesadas === tablas.length) {
-                            res.json({ success: true, procesadas: procesadas });
-                        }
-                        return;
-                    }
-                    
-                    const registro = registros[idx];
-                    const keys = Object.keys(registro).filter(k => k !== 'id' && k !== 'created_at');
-                    const placeholders = keys.map(() => '?').join(',');
-                    const values = keys.map(k => registro[k]);
-                    const sql = `INSERT INTO ${tabla} (${keys.join(',')}) VALUES (${placeholders})`;
-                    
-                    db.run(sql, values, function(err) {
-                        if (err) {
-                            console.error(`Error al insertar en ${tabla}:`, err);
-                        }
-                        insertados++;
-                        if (insertados === registros.length) {
-                            procesadas++;
-                            if (procesadas === tablas.length) {
-                                res.json({ success: true, procesadas: procesadas, total: registros.length });
-                            }
-                        }
-                    });
-                };
-                
-                insertarRegistro(0);
-            });
-        });
-        
-    } catch (error) {
-        console.error('Error al restaurar:', error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ==================== SERVIDOR FRONTEND ====================
-const frontendPath = path.join(__dirname, 'frontend');
-console.log('📁 Ruta del frontend:', frontendPath);
-app.use(express.static(frontendPath));
-
-app.get('/', (req, res) => {
-    res.sendFile(path.join(frontendPath, 'index.html'));
-});
-
+// ============================================
+// RUTA PRINCIPAL - RUTA CORREGIDA
+// ============================================
+// Ahora busca "index.html" dentro de "backend/frontend/"
 app.get('*', (req, res) => {
-    if (!req.path.startsWith('/api')) {
-        res.sendFile(path.join(frontendPath, 'index.html'));
-    }
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
 
-// ==================== INICIAR SERVIDOR ====================
-app.listen(PORT, () => {
-    console.log(`\n🚀 GECG - Servidor corriendo en http://localhost:${PORT}`);
-    console.log('📝 Credenciales: admin / admin123');
-    console.log('📁 Respaldos SQLite: ./backups/');
-    console.log('📁 Respaldos JSON: ./json_backups/');
+// ============================================
+// MANEJO DE ERRORES
+// ============================================
+app.use((err, req, res, next) => {
+  console.error('❌ Error:', err.stack);
+  res.status(500).json({ error: 'Error interno del servidor' });
+});
+
+// ============================================
+// INICIAR SERVIDOR
+// ============================================
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 GECG Server corriendo en http://localhost:${PORT}`);
+  console.log(`📊 Base de datos: SQLite`);
+  console.log(`👤 Usuario: admin / Contraseña: admin123`);
+  console.log(`🔗 Acceso desde: http://localhost:${PORT}`);
+  console.log(`📁 Sirviendo archivos desde: ${path.join(__dirname, 'frontend')}`);
+});
+
+// ============================================
+// MANEJO DE CIERRE GRACEFUL
+// ============================================
+process.on('SIGINT', () => {
+  db.close((err) => {
+    if (err) console.error('❌ Error al cerrar la base de datos:', err);
+    else console.log('📊 Base de datos cerrada correctamente');
+    process.exit(0);
+  });
 });
