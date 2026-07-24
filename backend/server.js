@@ -139,9 +139,26 @@ db.serialize(() => {
     data TEXT NOT NULL
   )`);
 
-  db.run(`INSERT OR IGNORE INTO usuarios (username, password, nombre_completo, rol) 
-          VALUES ('admin', 'admin123', 'Administrador', 'Administrador')`);
+  // ============================================
+  // CREAR USUARIO ADMIN AUTOMÁTICAMENTE
+  // ============================================
+  db.get('SELECT * FROM usuarios WHERE username = ?', ['admin'], (err, row) => {
+    if (err) {
+      console.error('❌ Error al verificar usuario admin:', err.message);
+      return;
+    }
+    if (!row) {
+      db.run(`INSERT INTO usuarios (username, password, nombre_completo, rol) 
+              VALUES ('admin', 'admin123', 'Administrador', 'Administrador')`, function(err) {
+        if (err) console.error('❌ Error al crear usuario admin:', err.message);
+        else console.log('✅ Usuario admin creado correctamente');
+      });
+    } else {
+      console.log('✅ Usuario admin ya existe');
+    }
+  });
 
+  // Configuración por defecto
   const configDefault = {
     embalses: ['AGUA FRIA', 'LA MARIPOSA'],
     operadores: ['Juan Pérez', 'María González', 'Carlos López', 'Ana Rodríguez'],
@@ -187,16 +204,25 @@ function authMiddleware(req, res, next) {
 }
 
 // ============================================
-// RUTAS: LOGIN
+// RUTAS: LOGIN (CON LOGS)
 // ============================================
 app.post('/api/login', (req, res) => {
   const { username, password } = req.body;
+  console.log('🔐 Intento de login:', username);
+  
   db.get(
     'SELECT id, username, nombre_completo, rol FROM usuarios WHERE username = ? AND password = ?',
     [username, password],
     (err, row) => {
-      if (err) return res.status(500).json({ error: err.message });
-      if (!row) return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+      if (err) {
+        console.error('❌ Error en login:', err.message);
+        return res.status(500).json({ error: err.message });
+      }
+      if (!row) {
+        console.log('❌ Usuario no encontrado o contraseña incorrecta:', username);
+        return res.status(401).json({ error: 'Usuario o contraseña incorrectos' });
+      }
+      console.log('✅ Login exitoso:', username);
       res.json({ 
         token: 'token_' + Date.now(),
         user: { 
