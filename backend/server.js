@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
 const sqlite3 = require('sqlite3').verbose();
 
 // ============================================
@@ -19,7 +18,6 @@ db.run('PRAGMA foreign_keys = ON');
 // CREAR TABLAS
 // ============================================
 db.serialize(() => {
-  // Eliminar tablas existentes para recrearlas
   db.run(`DROP TABLE IF EXISTS presiones`);
   db.run(`DROP TABLE IF EXISTS plantas`);
   db.run(`DROP TABLE IF EXISTS estaciones`);
@@ -30,7 +28,6 @@ db.serialize(() => {
   db.run(`DROP TABLE IF EXISTS configuracion`);
   db.run(`DROP TABLE IF EXISTS respaldos`);
 
-  // Tabla: Presiones (Dispositivo)
   db.run(`CREATE TABLE presiones (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
@@ -41,7 +38,6 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Tabla: Plantas
   db.run(`CREATE TABLE plantas (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
@@ -58,7 +54,6 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Tabla: Estaciones
   db.run(`CREATE TABLE estaciones (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
@@ -74,7 +69,6 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Tabla: Diques
   db.run(`CREATE TABLE diques (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
@@ -92,7 +86,6 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Tabla: Embalses
   db.run(`CREATE TABLE embalses (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
@@ -109,7 +102,6 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Tabla: Maniobras
   db.run(`CREATE TABLE maniobras (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     fecha TEXT NOT NULL,
@@ -124,7 +116,6 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Tabla: Usuarios
   db.run(`CREATE TABLE usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
@@ -134,7 +125,6 @@ db.serialize(() => {
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 
-  // Tabla: Configuración
   db.run(`CREATE TABLE configuracion (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tipo TEXT NOT NULL,
@@ -142,7 +132,6 @@ db.serialize(() => {
     UNIQUE(tipo, valor)
   )`);
 
-  // Tabla: Respaldos
   db.run(`CREATE TABLE respaldos (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
@@ -150,11 +139,9 @@ db.serialize(() => {
     data TEXT NOT NULL
   )`);
 
-  // Usuario admin por defecto
   db.run(`INSERT OR IGNORE INTO usuarios (username, password, nombre_completo, rol) 
           VALUES ('admin', 'admin123', 'Administrador', 'Administrador')`);
 
-  // Configuración por defecto
   const configDefault = {
     embalses: ['AGUA FRIA', 'LA MARIPOSA'],
     operadores: ['Juan Pérez', 'María González', 'Carlos López', 'Ana Rodríguez'],
@@ -177,7 +164,6 @@ console.log('📊 Base de datos SQLite inicializada');
 // ============================================
 const app = express();
 
-// Middleware
 app.use(cors({
   origin: '*',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
@@ -186,14 +172,11 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
-// ============================================
-// SERVIR ARCHIVOS ESTÁTICOS - RUTA CORREGIDA
-// ============================================
-// Ahora busca la carpeta "frontend" DENTRO de "backend"
+// Servir archivos estáticos
 app.use(express.static(path.join(__dirname, 'frontend')));
 
 // ============================================
-// MIDDLEWARE: Autenticación
+// MIDDLEWARE DE AUTENTICACIÓN
 // ============================================
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization;
@@ -587,7 +570,7 @@ app.post('/api/respaldos', authMiddleware, (req, res) => {
     db.all(`SELECT * FROM ${tabla}`, (err, rows) => {
       if (err) {
         error = err;
-        return res.status(500).json({ error: err.message });
+        return;
       }
       data[tabla] = rows;
       pendientes--;
@@ -671,9 +654,16 @@ app.post('/api/restaurar', authMiddleware, (req, res) => {
 });
 
 // ============================================
-// RUTA PRINCIPAL - RUTA CORREGIDA
+// RUTAS DEL FRONTEND
 // ============================================
-// Ahora busca "index.html" dentro de "backend/frontend/"
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
+});
+
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, 'frontend', 'dashboard.html'));
+});
+
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend', 'index.html'));
 });
@@ -694,11 +684,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`📊 Base de datos: SQLite`);
   console.log(`👤 Usuario: admin / Contraseña: admin123`);
   console.log(`🔗 Acceso desde: http://localhost:${PORT}`);
-  console.log(`📁 Sirviendo archivos desde: ${path.join(__dirname, 'frontend')}`);
 });
 
 // ============================================
-// MANEJO DE CIERRE GRACEFUL
+// MANEJO DE CIERRE
 // ============================================
 process.on('SIGINT', () => {
   db.close((err) => {
