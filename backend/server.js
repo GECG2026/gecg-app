@@ -7,6 +7,12 @@ const sqlite3 = require('sqlite3').verbose();
 // CONFIGURACIÓN
 // ============================================
 const PORT = process.env.PORT || 3000;
+// ============================================
+// CONEXIÓN A MONGODB ATLAS
+// ============================================
+const USE_MONGODB = true; // Cambia a false para usar SQLite
+
+const MONGO_URI = "mongodb+srv://gecg:<Gecg2026>@cluster0.h5ezpeu.mongodb.net/?appName=Cluster0";
 
 // ============================================
 // CONEXIÓN A SQLITE
