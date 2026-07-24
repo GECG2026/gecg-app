@@ -62,6 +62,9 @@
                 }
 
                 const data = await res.json();
+                console.log('✅ Login exitoso, token:', data.token);
+                
+                // Guardar en sessionStorage
                 sessionStorage.setItem('gecg_token', data.token);
                 sessionStorage.setItem('gecg_user', JSON.stringify(data.user));
 
