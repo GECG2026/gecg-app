@@ -11,28 +11,6 @@
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f1f5f9; }
 
-        /* ===== VERIFICACIÓN DE AUTENTICACIÓN ===== */
-        .auth-check {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            background: #f1f5f9;
-            font-size: 18px;
-            color: #475569;
-        }
-        .auth-check .spinner {
-            width: 40px;
-            height: 40px;
-            border: 4px solid #e2e8f0;
-            border-top-color: #3b82f6;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin-right: 16px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* ===== SIDEBAR ===== */
         .sidebar {
             width: 220px;
             height: 100vh;
@@ -78,7 +56,6 @@
         }
         .sidebar-footer .logout-btn:hover { background: rgba(239, 68, 68, 0.15); border-color: #ef4444; color: #ef4444; }
 
-        /* ===== MAIN ===== */
         .main-content { margin-left: 220px; min-height: 100vh; background: #f1f5f9; }
         .topbar {
             background: white; padding: 10px 20px; display: flex; justify-content: space-between;
@@ -99,7 +76,6 @@
         }
         .topbar-actions #usuarioActual { font-size: 12px; color: #475569; }
 
-        /* ===== CARDS ===== */
         .kpi-card {
             background: white; border-radius: 10px; padding: 10px 14px;
             box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;
@@ -218,21 +194,10 @@
 </head>
 <body>
 
-<!-- ===== VERIFICACIÓN DE AUTENTICACIÓN ===== -->
-<div id="authCheck" style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f1f5f9;font-size:18px;color:#475569;">
-    <div style="width:40px;height:40px;border:4px solid #e2e8f0;border-top-color:#3b82f6;border-radius:50%;animation:spin 0.8s linear infinite;margin-right:16px;"></div>
-    <span>Verificando autenticación...</span>
-</div>
-
-<style>
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .auth-check { display: none; }
-</style>
-
+<!-- ================================================================ -->
+<!-- VERIFICACIÓN DE AUTENTICACIÓN (DIRECTO EN BODY) -->
+<!-- ================================================================ -->
 <script>
-    // ============================================
-    // VERIFICAR AUTENTICACIÓN
-    // ============================================
     (function() {
         const token = sessionStorage.getItem('gecg_token');
         const user = sessionStorage.getItem('gecg_user');
@@ -243,316 +208,189 @@
         if (!token || !user) {
             console.log('❌ No autenticado, redirigiendo a login...');
             window.location.href = '/';
-            return;
         }
-        
-        // Si está autenticado, mostrar el dashboard
-        document.getElementById('authCheck').style.display = 'none';
-        document.getElementById('dashboardContent').style.display = 'block';
-        
-        // Inicializar la aplicación
-        document.addEventListener('DOMContentLoaded', function() {
-            const userData = JSON.parse(user);
-            document.getElementById('sidebarUserName').textContent = userData.nombre || 'Administrador';
-            document.getElementById('sidebarUserRol').textContent = userData.rol || 'Administrador';
-            document.getElementById('usuarioActual').textContent = userData.nombre || 'Admin';
-            document.getElementById('userAvatar').textContent = (userData.nombre || 'A').charAt(0);
-            
-            cargarKPIs();
-            cargarOperadores();
-            cargarHistorialEmbalses();
-            initCharts();
-        });
     })();
 </script>
 
 <!-- ================================================================ -->
 <!-- DASHBOARD CONTENT -->
 <!-- ================================================================ -->
-<div id="dashboardContent" style="display:none;">
+<div id="dashboardContent">
 
-<!-- ===== SIDEBAR ===== -->
-<aside class="sidebar" id="sidebar">
-    <div class="sidebar-brand">
-        <h1><i class="fas fa-water"></i> GECG</h1>
-        <p>Gestión de Control Guaicaipuro</p>
-        <p style="font-size: 8px; color: #64748b; margin-left: 28px;">Eje Altos Mirandinos</p>
-    </div>
-    <nav class="sidebar-menu">
-        <div class="menu-label">Navegación</div>
-        <a href="#" class="menu-item active" data-panel="dashboard"><i class="fas fa-th-large"></i> Dashboard</a>
-        <a href="#" class="menu-item" data-panel="embalses"><i class="fas fa-water"></i> Embalses</a>
-        <a href="#" class="menu-item" data-panel="plantas"><i class="fas fa-factory"></i> Plantas</a>
-        <a href="#" class="menu-item" data-panel="estaciones"><i class="fas fa-industry"></i> Estaciones</a>
-        <a href="#" class="menu-item" data-panel="diques"><i class="fas fa-dam"></i> Diques</a>
-        <a href="#" class="menu-item" data-panel="maniobras"><i class="fas fa-tasks"></i> Maniobras</a>
-        <a href="#" class="menu-item" data-panel="dispositivo"><i class="fas fa-microchip"></i> Dispositivo</a>
-        <a href="#" class="menu-item" data-panel="graficos"><i class="fas fa-chart-line"></i> Gráficos</a>
-        <div class="menu-label">Herramientas</div>
-        <a href="#" class="menu-item" data-panel="excel"><i class="fas fa-file-excel"></i> Excel</a>
-        <a href="#" class="menu-item" data-panel="admin" id="menuAdmin"><i class="fas fa-user-shield"></i> Administración</a>
-    </nav>
-    <div class="sidebar-footer">
-        <div class="user-info">
-            <div class="user-avatar" id="userAvatar">A</div>
-            <div>
-                <div class="user-name" id="sidebarUserName">Administrador</div>
-                <div class="user-role" id="sidebarUserRol">Administrador</div>
-            </div>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <h1><i class="fas fa-water"></i> GECG</h1>
+            <p>Gestión de Control Guaicaipuro</p>
+            <p style="font-size: 8px; color: #64748b; margin-left: 28px;">Eje Altos Mirandinos</p>
         </div>
-        <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
-    </div>
-</aside>
-
-<!-- ===== MAIN ===== -->
-<div class="main-content">
-    <header class="topbar">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-            <h2 class="page-title">Dashboard <span>GECG</span></h2>
+        <nav class="sidebar-menu">
+            <div class="menu-label">Navegación</div>
+            <a href="#" class="menu-item active" data-panel="dashboard"><i class="fas fa-th-large"></i> Dashboard</a>
+            <a href="#" class="menu-item" data-panel="embalses"><i class="fas fa-water"></i> Embalses</a>
+            <a href="#" class="menu-item" data-panel="plantas"><i class="fas fa-factory"></i> Plantas</a>
+            <a href="#" class="menu-item" data-panel="estaciones"><i class="fas fa-industry"></i> Estaciones</a>
+            <a href="#" class="menu-item" data-panel="diques"><i class="fas fa-dam"></i> Diques</a>
+            <a href="#" class="menu-item" data-panel="maniobras"><i class="fas fa-tasks"></i> Maniobras</a>
+            <a href="#" class="menu-item" data-panel="dispositivo"><i class="fas fa-microchip"></i> Dispositivo</a>
+            <a href="#" class="menu-item" data-panel="graficos"><i class="fas fa-chart-line"></i> Gráficos</a>
+            <div class="menu-label">Herramientas</div>
+            <a href="#" class="menu-item" data-panel="excel"><i class="fas fa-file-excel"></i> Excel</a>
+            <a href="#" class="menu-item" data-panel="admin" id="menuAdmin"><i class="fas fa-user-shield"></i> Administración</a>
+        </nav>
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar" id="userAvatar">A</div>
+                <div>
+                    <div class="user-name" id="sidebarUserName">Administrador</div>
+                    <div class="user-role" id="sidebarUserRol">Administrador</div>
+                </div>
+            </div>
+            <button class="logout-btn" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
         </div>
-        <div class="topbar-actions">
-            <button class="btn-icon"><i class="fas fa-bell"></i><span class="dot"></span></button>
-            <button class="btn-icon" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
-            <span id="usuarioActual">Admin</span>
-        </div>
-    </header>
+    </aside>
 
-    <!-- ===== PANEL DASHBOARD ===== -->
-    <div id="panel-dashboard" class="content-panel active">
+    <!-- MAIN -->
+    <div class="main-content">
+        <header class="topbar">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <h2 class="page-title">Dashboard <span>GECG</span></h2>
+            </div>
+            <div class="topbar-actions">
+                <button class="btn-icon"><i class="fas fa-bell"></i><span class="dot"></span></button>
+                <button class="btn-icon" onclick="toggleTheme()"><i class="fas fa-moon"></i></button>
+                <span id="usuarioActual">Admin</span>
+            </div>
+        </header>
 
-        <!-- KPIs -->
-        <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
-            <div class="kpi-card animate-in delay-1">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div class="kpi-label">Embalses</div>
-                        <div class="kpi-value" id="kpiEmbalses">0</div>
+        <!-- PANEL DASHBOARD -->
+        <div id="panel-dashboard" class="content-panel active">
+            <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 mb-4">
+                <div class="kpi-card animate-in delay-1">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div><div class="kpi-label">Embalses</div><div class="kpi-value" id="kpiEmbalses">0</div></div>
+                        <div class="kpi-icon green"><i class="fas fa-water"></i></div>
                     </div>
-                    <div class="kpi-icon green"><i class="fas fa-water"></i></div>
+                    <div class="mt-1"><span class="kpi-trend up">▲ Total</span><span class="text-xs text-gray-400"> registrados</span></div>
                 </div>
-                <div class="mt-1"><span class="kpi-trend up">▲ Total</span><span class="text-xs text-gray-400"> registrados</span></div>
-            </div>
-            <div class="kpi-card animate-in delay-2">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div class="kpi-label">Operativos</div>
-                        <div class="kpi-value" id="kpiOperativos">0</div>
+                <div class="kpi-card animate-in delay-2">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div><div class="kpi-label">Operativos</div><div class="kpi-value" id="kpiOperativos">0</div></div>
+                        <div class="kpi-icon blue"><i class="fas fa-check-circle"></i></div>
                     </div>
-                    <div class="kpi-icon blue"><i class="fas fa-check-circle"></i></div>
+                    <div class="mt-1"><span class="kpi-trend up">✅ Activos</span></div>
                 </div>
-                <div class="mt-1"><span class="kpi-trend up">✅ Activos</span></div>
-            </div>
-            <div class="kpi-card animate-in delay-3">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div class="kpi-label">En Parada</div>
-                        <div class="kpi-value" id="kpiEnParada">0</div>
+                <div class="kpi-card animate-in delay-3">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div><div class="kpi-label">En Parada</div><div class="kpi-value" id="kpiEnParada">0</div></div>
+                        <div class="kpi-icon red"><i class="fas fa-exclamation-circle"></i></div>
                     </div>
-                    <div class="kpi-icon red"><i class="fas fa-exclamation-circle"></i></div>
+                    <div class="mt-1"><span class="kpi-trend down">⚠️ Crítico</span></div>
                 </div>
-                <div class="mt-1"><span class="kpi-trend down">⚠️ Crítico</span></div>
-            </div>
-            <div class="kpi-card animate-in delay-4">
-                <div style="display:flex;justify-content:space-between;align-items:center;">
-                    <div>
-                        <div class="kpi-label">Transición</div>
-                        <div class="kpi-value" id="kpiTransicion">0</div>
+                <div class="kpi-card animate-in delay-4">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <div><div class="kpi-label">Transición</div><div class="kpi-value" id="kpiTransicion">0</div></div>
+                        <div class="kpi-icon yellow"><i class="fas fa-arrow-right"></i></div>
                     </div>
-                    <div class="kpi-icon yellow"><i class="fas fa-arrow-right"></i></div>
+                    <div class="mt-1"><span class="kpi-trend warning">⚡ Atención</span></div>
                 </div>
-                <div class="mt-1"><span class="kpi-trend warning">⚡ Atención</span></div>
             </div>
-        </div>
 
-        <!-- GRÁFICOS -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-chart-line"></i> Evolución de Cotas</div>
+                    <div style="height:140px;"><canvas id="chartCotas"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-chart-pie"></i> Distribución de Producción</div>
+                    <div style="height:140px;"><canvas id="chartProduccion"></canvas></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-chart-bar"></i> Estado de Embalses</div>
+                    <div style="height:130px;"><canvas id="chartEmbalses"></canvas></div>
+                </div>
+                <div class="chart-card">
+                    <div class="chart-title"><i class="fas fa-gauge-high"></i> Indicadores de Riesgo</div>
+                    <div style="height:130px;"><canvas id="chartRiesgo"></canvas></div>
+                </div>
+            </div>
+
             <div class="chart-card">
-                <div class="chart-title"><i class="fas fa-chart-line"></i> Evolución de Cotas</div>
-                <div style="height:140px;"><canvas id="chartCotas"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title"><i class="fas fa-chart-pie"></i> Distribución de Producción</div>
-                <div style="height:140px;"><canvas id="chartProduccion"></canvas></div>
-            </div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-            <div class="chart-card">
-                <div class="chart-title"><i class="fas fa-chart-bar"></i> Estado de Embalses</div>
-                <div style="height:130px;"><canvas id="chartEmbalses"></canvas></div>
-            </div>
-            <div class="chart-card">
-                <div class="chart-title"><i class="fas fa-gauge-high"></i> Indicadores de Riesgo</div>
-                <div style="height:130px;"><canvas id="chartRiesgo"></canvas></div>
+                <div class="chart-title"><i class="fas fa-bell"></i> Alertas Recientes</div>
+                <div style="overflow-x:auto;">
+                    <table class="table-modern">
+                        <thead><tr><th>Fecha</th><th>Ubicación</th><th>Tipo</th><th>Estado</th><th>Acción</th></tr></thead>
+                        <tbody id="cuerpoAlertas">
+                            <tr><td colspan="5" class="text-center text-gray-400 py-2">Cargando alertas...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
 
-        <!-- TABLA DE ALERTAS -->
-        <div class="chart-card">
-            <div class="chart-title"><i class="fas fa-bell"></i> Alertas Recientes</div>
-            <div style="overflow-x:auto;">
-                <table class="table-modern">
-                    <thead><tr><th>Fecha</th><th>Ubicación</th><th>Tipo</th><th>Estado</th><th>Acción</th></tr></thead>
-                    <tbody id="cuerpoAlertas">
-                        <tr><td colspan="5" class="text-center text-gray-400 py-2">Cargando alertas...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <!-- ===== PANEL EMBALSES ===== -->
-    <div id="panel-embalses" class="content-panel">
-        <!-- FORMULARIO -->
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-water text-blue-500"></i> Registro de Embalses</h3>
-            <hr class="my-3">
-            
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">📅 Fecha</label>
-                    <input type="date" id="fechaEmbalse" class="w-full p-1.5 border rounded text-sm">
-                </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">🏞️ Embalse</label>
-                    <select id="embalseSelect" class="w-full p-1.5 border rounded text-sm">
-                        <option value="AGUA FRIA">AGUA FRIA</option>
-                        <option value="LA MARIPOSA">LA MARIPOSA</option>
-                        <option value="QUEBRADA">QUEBRADA</option>
-                        <option value="TACATA">TACATA</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">👤 Operador Entrante</label>
-                    <select id="opEntranteEmbalse" class="w-full p-1.5 border rounded text-sm">
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">👥 Operador Saliente</label>
-                    <select id="opSalienteEmbalse" class="w-full p-1.5 border rounded text-sm">
-                        <option value="">Seleccionar...</option>
-                    </select>
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-3 gap-3 mt-3">
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">📍 Cota Embalse (m)</label>
-                    <input type="number" step="0.01" id="cotaEmbalse" class="w-full p-1.5 border rounded text-sm" oninput="calcularEstadoEmbalse()" placeholder="Ej: 18.5">
-                </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">🛑 Cota Parada (m)</label>
-                    <input type="number" step="0.01" id="cotaParada" class="w-full p-1.5 border rounded text-sm" oninput="calcularEstadoEmbalse()" placeholder="Ej: 10.0">
-                </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">▶️ Cota Arranque (m)</label>
-                    <input type="number" step="0.01" id="cotaArranque" class="w-full p-1.5 border rounded text-sm" oninput="calcularEstadoEmbalse()" placeholder="Ej: 15.0">
-                </div>
-            </div>
-            
-            <div class="grid grid-cols-3 gap-3 mt-3">
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">⚡ Diferencia</label>
-                    <input type="text" id="diferenciaCotas" class="w-full p-1.5 border rounded text-sm bg-gray-50" readonly>
-                </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">📊 Estado</label>
-                    <div id="estadoEmbalseInfo" class="w-full p-1.5 rounded text-sm text-center bg-gray-100 text-gray-600 font-bold">
-                        Ingrese cotas
+        <!-- PANEL EMBALSES -->
+        <div id="panel-embalses" class="content-panel">
+            <div class="chart-card">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-water text-blue-500"></i> Registro de Embalses</h3>
+                <hr class="my-3">
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div><label class="text-xs font-semibold text-gray-600">📅 Fecha</label><input type="date" id="fechaEmbalse" class="w-full p-1.5 border rounded text-sm"></div>
+                    <div><label class="text-xs font-semibold text-gray-600">🏞️ Embalse</label>
+                        <select id="embalseSelect" class="w-full p-1.5 border rounded text-sm">
+                            <option value="AGUA FRIA">AGUA FRIA</option>
+                            <option value="LA MARIPOSA">LA MARIPOSA</option>
+                            <option value="QUEBRADA">QUEBRADA</option>
+                            <option value="TACATA">TACATA</option>
+                        </select>
+                    </div>
+                    <div><label class="text-xs font-semibold text-gray-600">👤 Operador Entrante</label>
+                        <select id="opEntranteEmbalse" class="w-full p-1.5 border rounded text-sm"><option value="">Seleccionar...</option></select>
+                    </div>
+                    <div><label class="text-xs font-semibold text-gray-600">👥 Operador Saliente</label>
+                        <select id="opSalienteEmbalse" class="w-full p-1.5 border rounded text-sm"><option value="">Seleccionar...</option></select>
                     </div>
                 </div>
-                <div>
-                    <label class="text-xs font-semibold text-gray-600">📝 Observaciones</label>
-                    <input type="text" id="obsEmbalse" class="w-full p-1.5 border rounded text-sm" placeholder="Opcional">
+                <div class="grid grid-cols-3 gap-3 mt-3">
+                    <div><label class="text-xs font-semibold text-gray-600">📍 Cota Embalse (m)</label><input type="number" step="0.01" id="cotaEmbalse" class="w-full p-1.5 border rounded text-sm" oninput="calcularEstadoEmbalse()" placeholder="Ej: 18.5"></div>
+                    <div><label class="text-xs font-semibold text-gray-600">🛑 Cota Parada (m)</label><input type="number" step="0.01" id="cotaParada" class="w-full p-1.5 border rounded text-sm" oninput="calcularEstadoEmbalse()" placeholder="Ej: 10.0"></div>
+                    <div><label class="text-xs font-semibold text-gray-600">▶️ Cota Arranque (m)</label><input type="number" step="0.01" id="cotaArranque" class="w-full p-1.5 border rounded text-sm" oninput="calcularEstadoEmbalse()" placeholder="Ej: 15.0"></div>
+                </div>
+                <div class="grid grid-cols-3 gap-3 mt-3">
+                    <div><label class="text-xs font-semibold text-gray-600">⚡ Diferencia</label><input type="text" id="diferenciaCotas" class="w-full p-1.5 border rounded text-sm bg-gray-50" readonly></div>
+                    <div><label class="text-xs font-semibold text-gray-600">📊 Estado</label><div id="estadoEmbalseInfo" class="w-full p-1.5 rounded text-sm text-center bg-gray-100 text-gray-600 font-bold">Ingrese cotas</div></div>
+                    <div><label class="text-xs font-semibold text-gray-600">📝 Observaciones</label><input type="text" id="obsEmbalse" class="w-full p-1.5 border rounded text-sm" placeholder="Opcional"></div>
+                </div>
+                <div class="mt-4 flex gap-3">
+                    <button class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700" onclick="guardarEmbalse()"><i class="fas fa-save"></i> Guardar</button>
+                    <button class="bg-gray-300 text-gray-700 px-4 py-1.5 rounded text-sm hover:bg-gray-400" onclick="limpiarFormularioEmbalse()"><i class="fas fa-eraser"></i> Limpiar</button>
                 </div>
             </div>
-            
-            <div class="mt-4 flex gap-3">
-                <button class="bg-blue-600 text-white px-4 py-1.5 rounded text-sm hover:bg-blue-700" onclick="guardarEmbalse()">
-                    <i class="fas fa-save"></i> Guardar
-                </button>
-                <button class="bg-gray-300 text-gray-700 px-4 py-1.5 rounded text-sm hover:bg-gray-400" onclick="limpiarFormularioEmbalse()">
-                    <i class="fas fa-eraser"></i> Limpiar
-                </button>
+            <div class="chart-card mt-4">
+                <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-history text-blue-500"></i> Historial de Embalses</h3>
+                <hr class="my-3">
+                <div style="overflow-x:auto; max-height: 250px; overflow-y: auto;">
+                    <table class="table-modern w-full">
+                        <thead><tr><th>Fecha</th><th>Embalse</th><th>Cota (m)</th><th>Estado</th><th>Operadores</th><th>Acción</th></tr></thead>
+                        <tbody id="cuerpoHistorialEmbalses"><tr><td colspan="6" class="text-center text-gray-400 py-2">No hay registros</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="mt-2 text-xs text-gray-400" id="totalRegistrosEmbalse">Total: 0 registros</div>
             </div>
         </div>
-        
-        <!-- HISTORIAL -->
-        <div class="chart-card mt-4">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-history text-blue-500"></i> Historial de Embalses</h3>
-            <hr class="my-3">
-            <div style="overflow-x:auto; max-height: 250px; overflow-y: auto;">
-                <table class="table-modern w-full">
-                    <thead>
-                        <tr>
-                            <th>Fecha</th>
-                            <th>Embalse</th>
-                            <th>Cota (m)</th>
-                            <th>Estado</th>
-                            <th>Operadores</th>
-                            <th>Acción</th>
-                        </tr>
-                    </thead>
-                    <tbody id="cuerpoHistorialEmbalses">
-                        <tr><td colspan="6" class="text-center text-gray-400 py-2">No hay registros</td></tr>
-                    </tbody>
-                </table>
-            </div>
-            <div class="mt-2 text-xs text-gray-400" id="totalRegistrosEmbalse">Total: 0 registros</div>
-        </div>
-    </div>
 
-    <!-- ===== PANELES PLACEHOLDER ===== -->
-    <div id="panel-plantas" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-factory text-green-500"></i> Plantas</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
+        <!-- PANELES PLACEHOLDER -->
+        <div id="panel-plantas" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-factory text-green-500"></i> Plantas</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
+        <div id="panel-estaciones" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-industry text-purple-500"></i> Estaciones</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
+        <div id="panel-diques" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-dam text-yellow-500"></i> Diques</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
+        <div id="panel-maniobras" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-tasks text-orange-500"></i> Maniobras</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
+        <div id="panel-dispositivo" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-microchip text-cyan-500"></i> Dispositivo</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
+        <div id="panel-graficos" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-chart-line text-indigo-500"></i> Gráficos Avanzados</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
+        <div id="panel-excel" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-file-excel text-green-600"></i> Exportar Excel</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
+        <div id="panel-admin" class="content-panel"><div class="chart-card"><h3 class="text-lg font-bold text-gray-800"><i class="fas fa-user-shield text-red-500"></i> Administración</h3><p class="text-gray-500 text-sm">Módulo en construcción...</p></div></div>
     </div>
-    <div id="panel-estaciones" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-industry text-purple-500"></i> Estaciones</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
-    </div>
-    <div id="panel-diques" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-dam text-yellow-500"></i> Diques</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
-    </div>
-    <div id="panel-maniobras" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-tasks text-orange-500"></i> Maniobras</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
-    </div>
-    <div id="panel-dispositivo" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-microchip text-cyan-500"></i> Dispositivo</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
-    </div>
-    <div id="panel-graficos" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-chart-line text-indigo-500"></i> Gráficos Avanzados</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
-    </div>
-    <div id="panel-excel" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-file-excel text-green-600"></i> Exportar Excel</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
-    </div>
-    <div id="panel-admin" class="content-panel">
-        <div class="chart-card">
-            <h3 class="text-lg font-bold text-gray-800"><i class="fas fa-user-shield text-red-500"></i> Administración</h3>
-            <p class="text-gray-500 text-sm">Módulo en construcción...</p>
-        </div>
-    </div>
-</div>
 </div>
 
 <!-- ================================================================ -->
@@ -562,12 +400,7 @@
     let chartCotas, chartProduccion, chartEmbalses, chartRiesgo;
     let darkMode = false;
 
-    // ============================================
-    // UTILIDADES
-    // ============================================
-    function toggleSidebar() { 
-        document.getElementById('sidebar').classList.toggle('open'); 
-    }
+    function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
     function toggleTheme() {
         darkMode = !darkMode;
@@ -586,9 +419,7 @@
         }
     }
 
-    // ============================================
-    // NAVEGACIÓN
-    // ============================================
+    // Navegación
     document.querySelectorAll('.menu-item').forEach(item => {
         item.addEventListener('click', function(e) {
             e.preventDefault();
@@ -601,90 +432,57 @@
         });
     });
 
-    // ============================================
-    // OBTENER TOKEN
-    // ============================================
-    function getToken() {
-        return sessionStorage.getItem('gecg_token');
+    function getToken() { return sessionStorage.getItem('gecg_token'); }
+
+    // Cargar datos del usuario
+    const userData = JSON.parse(sessionStorage.getItem('gecg_user') || '{}');
+    if (userData.nombre) {
+        document.getElementById('sidebarUserName').textContent = userData.nombre;
+        document.getElementById('sidebarUserRol').textContent = userData.rol || 'Administrador';
+        document.getElementById('usuarioActual').textContent = userData.nombre;
+        document.getElementById('userAvatar').textContent = userData.nombre.charAt(0);
     }
 
-    // ============================================
-    // CARGAR KPIs
-    // ============================================
+    // ===== KPIs =====
     async function cargarKPIs() {
         try {
-            const token = getToken();
             const res = await fetch('/api/embalses', {
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + getToken() }
             });
-            
-            if (res.status === 401) {
-                window.location.href = '/';
-                return;
-            }
-            
+            if (res.status === 401) { window.location.href = '/'; return; }
             const embalses = await res.json();
-            
-            let total = embalses.length;
-            let operativos = 0;
-            let enParada = 0;
-            let transicion = 0;
-            
+            let total = embalses.length, operativos = 0, enParada = 0, transicion = 0;
             embalses.forEach(e => {
                 const estado = e.estado || '';
                 if (estado.includes('OPERATIVO')) operativos++;
                 else if (estado.includes('PARADA')) enParada++;
                 else if (estado.includes('TRANSICIÓN')) transicion++;
             });
-            
             document.getElementById('kpiEmbalses').textContent = total;
             document.getElementById('kpiOperativos').textContent = operativos;
             document.getElementById('kpiEnParada').textContent = enParada;
             document.getElementById('kpiTransicion').textContent = transicion;
-            
-        } catch (error) {
-            console.error('Error al cargar KPIs:', error);
-        }
+        } catch (error) { console.error('Error:', error); }
     }
 
-    // ============================================
-    // MÓDULO EMBALSES
-    // ============================================
+    // ===== EMBALSES =====
     function calcularEstadoEmbalse() {
-        const cotaEmbalse = parseFloat(document.getElementById('cotaEmbalse').value) || 0;
-        const cotaParada = parseFloat(document.getElementById('cotaParada').value) || 0;
-        const cotaArranque = parseFloat(document.getElementById('cotaArranque').value) || 0;
-        
-        const diferencia = cotaArranque - cotaParada;
-        document.getElementById('diferenciaCotas').value = diferencia.toFixed(2) + ' m';
-        
-        let estado = 'Ingrese cotas';
-        let color = 'bg-gray-100 text-gray-600';
-        
-        if (cotaParada > 0 && cotaArranque > 0 && cotaEmbalse > 0) {
-            if (cotaEmbalse >= cotaArranque) {
-                estado = '✅ OPERATIVO';
-                color = 'bg-green-100 text-green-700';
-            } else if (cotaEmbalse <= cotaParada) {
-                estado = '⚠️ EN PARADA';
-                color = 'bg-red-100 text-red-700';
-            } else if (cotaEmbalse > cotaParada && cotaEmbalse < cotaArranque) {
-                estado = '⚡ TRANSICIÓN';
-                color = 'bg-yellow-100 text-yellow-700';
-            }
+        const ce = parseFloat(document.getElementById('cotaEmbalse').value) || 0;
+        const cp = parseFloat(document.getElementById('cotaParada').value) || 0;
+        const ca = parseFloat(document.getElementById('cotaArranque').value) || 0;
+        document.getElementById('diferenciaCotas').value = (ca - cp).toFixed(2) + ' m';
+        let estado = 'Ingrese cotas', color = 'bg-gray-100 text-gray-600';
+        if (cp > 0 && ca > 0 && ce > 0) {
+            if (ce >= ca) { estado = '✅ OPERATIVO'; color = 'bg-green-100 text-green-700'; }
+            else if (ce <= cp) { estado = '⚠️ EN PARADA'; color = 'bg-red-100 text-red-700'; }
+            else if (ce > cp && ce < ca) { estado = '⚡ TRANSICIÓN'; color = 'bg-yellow-100 text-yellow-700'; }
         }
-        
         const el = document.getElementById('estadoEmbalseInfo');
         el.textContent = estado;
         el.className = 'w-full p-1.5 rounded text-sm text-center font-bold ' + color;
     }
 
-    // ============================================
-    // GUARDAR EMBALSE
-    // ============================================
     async function guardarEmbalse() {
-        const token = getToken();
-        
         const fecha = document.getElementById('fechaEmbalse').value;
         const embalse = document.getElementById('embalseSelect').value;
         const opE = document.getElementById('opEntranteEmbalse').value;
@@ -692,59 +490,26 @@
         const cotaEmbalse = document.getElementById('cotaEmbalse').value;
         const cotaParada = document.getElementById('cotaParada').value;
         const cotaArranque = document.getElementById('cotaArranque').value;
-        const observaciones = document.getElementById('obsEmbalse').value;
-        
         if (!fecha || !embalse || !opE || !opS || !cotaEmbalse) {
             alert('❌ Complete todos los campos obligatorios');
             return;
         }
-        
         const diferencia = parseFloat(cotaArranque) - parseFloat(cotaParada);
         const estado = document.getElementById('estadoEmbalseInfo').textContent.trim();
-        
-        const data = {
-            fecha,
-            embalse,
-            operador_entrante: opE,
-            operador_saliente: opS,
-            cota_embalse: cotaEmbalse,
-            cota_parada: cotaParada || '0',
-            cota_arranque: cotaArranque || '0',
-            diferencia: diferencia.toFixed(2) + ' m',
-            estado: estado,
-            observaciones: observaciones || '',
-            usuario: 'admin'
-        };
-        
+        const data = { fecha, embalse, operador_entrante: opE, operador_saliente: opS, cota_embalse: cotaEmbalse, cota_parada: cotaParada || '0', cota_arranque: cotaArranque || '0', diferencia: diferencia.toFixed(2) + ' m', estado, observaciones: document.getElementById('obsEmbalse').value || '', usuario: 'admin' };
         try {
             const res = await fetch('/api/embalses', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': 'Bearer ' + token
-                },
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + getToken() },
                 body: JSON.stringify(data)
             });
-            
-            if (res.status === 401) {
-                alert('❌ Sesión expirada. Vuelve a iniciar sesión.');
-                window.location.href = '/';
-                return;
-            }
-            
-            if (!res.ok) {
-                const error = await res.json();
-                throw new Error(error.error || 'Error al guardar');
-            }
-            
+            if (res.status === 401) { alert('❌ Sesión expirada.'); window.location.href = '/'; return; }
+            if (!res.ok) throw new Error((await res.json()).error || 'Error');
             alert('✅ Registro guardado correctamente');
             limpiarFormularioEmbalse();
             cargarHistorialEmbalses();
             cargarKPIs();
-            
-        } catch (error) {
-            alert('❌ Error: ' + error.message);
-        }
+        } catch (error) { alert('❌ Error: ' + error.message); }
     }
 
     function limpiarFormularioEmbalse() {
@@ -758,31 +523,20 @@
         document.getElementById('estadoEmbalseInfo').className = 'w-full p-1.5 rounded text-sm text-center bg-gray-100 text-gray-600 font-bold';
     }
 
-    // ============================================
-    // CARGAR HISTORIAL DE EMBALSES
-    // ============================================
     async function cargarHistorialEmbalses() {
         try {
-            const token = getToken();
             const res = await fetch('/api/embalses', {
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + getToken() }
             });
-            
-            if (res.status === 401) {
-                window.location.href = '/';
-                return;
-            }
-            
+            if (res.status === 401) { window.location.href = '/'; return; }
             const registros = await res.json();
             const tbody = document.getElementById('cuerpoHistorialEmbalses');
             const totalEl = document.getElementById('totalRegistrosEmbalse');
-            
             if (!registros || registros.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="6" class="text-center text-gray-400 py-2">No hay registros</td></tr>';
                 if (totalEl) totalEl.textContent = 'Total: 0 registros';
                 return;
             }
-            
             tbody.innerHTML = registros.map(r => `
                 <tr>
                     <td>${r.fecha || '-'}</td>
@@ -793,78 +547,42 @@
                     <td><button class="text-red-500 hover:text-red-700 text-xs" onclick="eliminarRegistro('embalses', '${r._id}')">Eliminar</button></td>
                 </tr>
             `).join('');
-            
             if (totalEl) totalEl.textContent = `Total: ${registros.length} registros`;
-            
-        } catch (error) {
-            console.error('Error cargando historial:', error);
-        }
+        } catch (error) { console.error('Error:', error); }
     }
 
-    // ============================================
-    // ELIMINAR REGISTRO
-    // ============================================
     async function eliminarRegistro(tabla, id) {
         if (!confirm('¿Eliminar este registro?')) return;
-        
         try {
-            const token = getToken();
             const res = await fetch(`/api/${tabla}/${id}`, {
                 method: 'DELETE',
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + getToken() }
             });
-            
-            if (res.status === 401) {
-                alert('❌ Sesión expirada. Vuelve a iniciar sesión.');
-                window.location.href = '/';
-                return;
-            }
-            
+            if (res.status === 401) { alert('❌ Sesión expirada.'); window.location.href = '/'; return; }
             if (!res.ok) throw new Error('Error al eliminar');
-            
             alert('✅ Registro eliminado');
             cargarHistorialEmbalses();
             cargarKPIs();
-            
-        } catch (error) {
-            alert('❌ Error: ' + error.message);
-        }
+        } catch (error) { alert('❌ Error: ' + error.message); }
     }
 
-    // ============================================
-    // CARGAR OPERADORES
-    // ============================================
     async function cargarOperadores() {
         try {
-            const token = getToken();
             const res = await fetch('/api/configuracion', {
-                headers: { 'Authorization': 'Bearer ' + token }
+                headers: { 'Authorization': 'Bearer ' + getToken() }
             });
-            
-            if (res.status === 401) {
-                window.location.href = '/';
-                return;
-            }
-            
+            if (res.status === 401) { window.location.href = '/'; return; }
             const config = await res.json();
             const operadores = config.operadores || ['Juan Pérez', 'María González', 'Carlos López'];
-            
-            const opciones = '<option value="">Seleccionar...</option>' + 
-                operadores.map(o => `<option value="${o}">${o}</option>`).join('');
-            
+            const opciones = '<option value="">Seleccionar...</option>' + operadores.map(o => `<option value="${o}">${o}</option>`).join('');
             ['opEntranteEmbalse', 'opSalienteEmbalse'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.innerHTML = opciones;
             });
-            
-        } catch (error) {
-            console.error('Error cargando operadores:', error);
-        }
+        } catch (error) { console.error('Error:', error); }
     }
 
-    // ============================================
-    // ALERTAS
-    // ============================================
+    // Alertas
     document.getElementById('cuerpoAlertas').innerHTML = `
         <tr><td>10/07/2026 14:30</td><td>Embalse Agua Fría</td><td>Cota baja</td><td><span class="status-badge warning">Alerta</span></td><td><button class="text-blue-500 hover:text-blue-700 text-xs">Ver</button></td></tr>
         <tr><td>10/07/2026 12:15</td><td>Planta Tuy II</td><td>Producción reducida</td><td><span class="status-badge danger">Crítico</span></td><td><button class="text-blue-500 hover:text-blue-700 text-xs">Ver</button></td></tr>
@@ -872,9 +590,7 @@
         <tr><td>09/07/2026 08:30</td><td>Dique Cañaote</td><td>Nivel bajo</td><td><span class="status-badge warning">Alerta</span></td><td><button class="text-blue-500 hover:text-blue-700 text-xs">Ver</button></td></tr>
     `;
 
-    // ============================================
-    // GRÁFICOS
-    // ============================================
+    // Gráficos
     function initCharts() {
         const ctx1 = document.getElementById('chartCotas').getContext('2d');
         chartCotas = new Chart(ctx1, {
@@ -901,48 +617,21 @@
                     pointBackgroundColor: '#ef4444'
                 }]
             },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'top', labels: { boxWidth: 10, fontSize: 10 } } },
-                scales: { y: { beginAtZero: false, title: { display: true, text: 'Cota (m)', font: { size: 9 } }, ticks: { font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top', labels: { boxWidth: 10, fontSize: 10 } } }, scales: { y: { beginAtZero: false, title: { display: true, text: 'Cota (m)', font: { size: 9 } }, ticks: { font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } } }
         });
 
         const ctx2 = document.getElementById('chartProduccion').getContext('2d');
         chartProduccion = new Chart(ctx2, {
             type: 'doughnut',
-            data: {
-                labels: ['Planta A', 'Planta B', 'Planta C'],
-                datasets: [{ data: [35, 45, 20], backgroundColor: ['#3b82f6', '#22c55e', '#eab308'], borderWidth: 1, borderColor: '#fff' }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, fontSize: 9, padding: 6 } } },
-                cutout: '60%'
-            }
+            data: { labels: ['Planta A', 'Planta B', 'Planta C'], datasets: [{ data: [35, 45, 20], backgroundColor: ['#3b82f6', '#22c55e', '#eab308'], borderWidth: 1, borderColor: '#fff' }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, fontSize: 9, padding: 6 } } }, cutout: '60%' }
         });
 
         const ctx3 = document.getElementById('chartEmbalses').getContext('2d');
         chartEmbalses = new Chart(ctx3, {
             type: 'bar',
-            data: {
-                labels: ['Agua Fría', 'La Mariposa', 'Quebrada', 'Tacata'],
-                datasets: [{ 
-                    label: 'Cota (m)', 
-                    data: [18.5, 22.3, 14.7, 9.2], 
-                    backgroundColor: ['#22c55e', '#3b82f6', '#eab308', '#ef4444'], 
-                    borderRadius: 4,
-                    barPercentage: 0.6
-                }]
-            },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, title: { display: true, text: 'Cota (m)', font: { size: 9 } }, ticks: { font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } }
-            }
+            data: { labels: ['Agua Fría', 'La Mariposa', 'Quebrada', 'Tacata'], datasets: [{ label: 'Cota (m)', data: [18.5, 22.3, 14.7, 9.2], backgroundColor: ['#22c55e', '#3b82f6', '#eab308', '#ef4444'], borderRadius: 4, barPercentage: 0.6 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, title: { display: true, text: 'Cota (m)', font: { size: 9 } }, ticks: { font: { size: 8 } } }, x: { ticks: { font: { size: 8 } } } } }
         });
 
         const ctx4 = document.getElementById('chartRiesgo').getContext('2d');
@@ -967,19 +656,20 @@
                     pointRadius: 2
                 }]
             },
-            options: { 
-                responsive: true, 
-                maintainAspectRatio: false,
-                scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20, font: { size: 8 } }, grid: { circular: true } } },
-                plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, fontSize: 9, padding: 6 } } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, scales: { r: { beginAtZero: true, max: 100, ticks: { stepSize: 20, font: { size: 8 } }, grid: { circular: true } } }, plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, fontSize: 9, padding: 6 } } } }
         });
     }
 
-    // ============================================
-    // REDIMENSIONAR GRÁFICOS
-    // ============================================
-    window.addEventListener('resize', () => { 
+    // Inicialización
+    document.addEventListener('DOMContentLoaded', function() {
+        document.getElementById('fechaEmbalse').value = new Date().toISOString().split('T')[0];
+        cargarOperadores();
+        cargarHistorialEmbalses();
+        cargarKPIs();
+        initCharts();
+    });
+
+    window.addEventListener('resize', () => {
         if (chartCotas) chartCotas.resize();
         if (chartProduccion) chartProduccion.resize();
         if (chartEmbalses) chartEmbalses.resize();
